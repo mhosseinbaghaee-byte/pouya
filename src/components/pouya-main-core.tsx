@@ -547,7 +547,6 @@ export function PouyaMainApp() {
   function toggleCallMute() {
     const next = !callMutedRef.current;
     callMutedRef.current = next;
-    setCallMuted(next);
     if (next) {
       stopMic();
       audioRef.current?.pause();
@@ -581,18 +580,21 @@ export function PouyaMainApp() {
     return (
       <button
         type="button"
-        className="relative flex min-h-dvh w-full items-center justify-center bg-stage"
+        className="relative flex min-h-dvh w-full flex-col items-center justify-end overflow-hidden bg-stage text-cream"
         onClick={() => {
-          sessionStorage.setItem(INTRO_KEY, "1");
+          try {
+            sessionStorage.setItem(INTRO_KEY, "1");
+          } catch {
+            /* ignore */
+          }
           setIntroDone(true);
         }}
-        aria-label="ورود به پویا"
       >
-        <div className="relative aspect-[9/16] h-[min(100dvh,100svh)] w-auto max-w-[100vw] overflow-hidden bg-stage">
-          <PouyaStage mood="intro" caption={"سلام من پویا هستم\nمربی زنده دانش و زبان"} immersive showCaption />
-          <p className="pointer-events-none absolute inset-x-0 bottom-[6%] text-center text-xs text-cream/80">
-            برای ادامه لمس کن
-          </p>
+        <PouyaStage mood="idle" className="absolute inset-0" />
+        <div className="relative z-10 flex w-full flex-col items-center gap-2 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-8">
+          <p className="font-display text-2xl font-medium tracking-tight">سلام، من پویا هستم</p>
+          <p className="text-sm text-cream/80">مربی زنده دانش و زبان</p>
+          <p className="mt-6 text-xs text-cream/60">برای ادامه لمس کن</p>
         </div>
       </button>
     );
@@ -641,7 +643,7 @@ export function PouyaMainApp() {
                 if (id === "live") setMode("live");
                 else if (id === "chat") setMode("chat");
               }}
-              className={cn("pouya-nav-btn", tab === id && "pouya-nav-btn-active")}
+              className={cn("pouya-glass-tab", tab === id && "pouya-glass-tab-active")}
               aria-current={tab === id ? "page" : undefined}
               aria-label={label}
             >
@@ -669,7 +671,7 @@ export function PouyaMainApp() {
             scrollerRef={scrollerRef}
             onSend={(t, a) => void send(t, mode, undefined, a)}
             onLesson={(t) => void send(t, "lesson")}
-            onDaily={() => void send("یک موضوع آموزشی روزانه به من بگو", "daily")}
+            onDaily={() => void send("یک موضوع آموزشی روزانه به من بگو", "chat")}
             onFact={() => void send("یک واقعیت علمی جالب بگو", "chat")}
             onMic={() => toggleMic("chat")}
             onLivePractice={openLivePractice}
@@ -707,23 +709,25 @@ export function PouyaMainApp() {
             onVoiceCall={() => void openVoiceCall()}
           />
         ) : null}
-        {tab === "quiz" ? <QuizPane level={level} setMood={setMood} /> : null}
-        {tab === "vault" ? <VaultPane /> : null}
         {tab === "coaches" ? (
           <CoachesPane
             activeId={assistantId}
-            onSelect={(a: Assistant) => setAssistantId(a.id)}
-            onStart={(a: Assistant) => {
+            onSelect={(id) => setAssistantId(id)}
+            onStart={(a) => {
               setAssistantId(a.id);
               setTab("chat");
-              void send(a.starter, "lesson");
+              setMode("chat");
+              void send(a.starter || `سلام، من می‌خواهم با مربی ${a.name} کار کنم.`, "chat");
             }}
-            onAskLesson={(p: string) => {
+            onAskLesson={(a) => {
+              setAssistantId(a.id);
               setTab("chat");
-              void send(p, "lesson");
+              void send(`یک درس کوتاه از ${a.name} برایم بگو`, "lesson");
             }}
           />
         ) : null}
+        {tab === "quiz" ? <QuizPane /> : null}
+        {tab === "vault" ? <VaultPane /> : null}
         {tab === "account" ? <AccountPane /> : null}
       </main>
 
