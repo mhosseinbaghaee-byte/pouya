@@ -2,11 +2,13 @@ import { type RefObject, useRef, useState } from "react";
 import { Bookmark, BookOpen, Check, Copy, History, Languages, Mic, Plus, Send, Trash2, X } from "lucide-react";
 import {
   LANGUAGES,
+  LEVELS,
   SCENARIOS,
   TOPICS,
   type LangCode,
   type Level,
 } from "@/lib/topics";
+import { saveProfile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 import { RichText } from "./rich-text";
 import { Button } from "./ui/button";
@@ -164,7 +166,7 @@ function HistorySheet({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {items.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-cream/60">هنوز گفتگویی ذخیره نشده.</p>
+            <p className="px--3 py-8 text-center text-sm text-cream/60">هنوز گفتگویی ذخیره نشده.</p>
           ) : (
             <ul className="space-y-1">
               {items.map((it) => (
@@ -211,7 +213,7 @@ export function ChatPane({
   const empty = messages.length === 0 && !typed;
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState<ChatAttachment | null>(null);
-  void level; void setLevel; void voiceOn; void setVoiceOn;
+  void voiceOn; void setVoiceOn;
 
   function pickFile(file: File | null | undefined) {
     if (!file) return;
@@ -263,6 +265,27 @@ export function ChatPane({
             <div className="px-1">
               <h1 className="font-display text-2xl font-medium tracking-tight text-cream drop-shadow-sm sm:text-3xl">چی دوست داری یاد بگیری؟</h1>
               <p className="mt-2 text-sm text-cream/75">بپرس، درس کوتاه بگیر، یا با صدا حرف بزن.</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="سطح پاسخ پویا">
+              {LEVELS.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => {
+                    setLevel(l.id);
+                    try {
+                      saveProfile({ level: l.id });
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className={cn(chipClass, level === l.id && "bg-white/35 ring-1 ring-white/50 font-medium")}
+                  aria-pressed={level === l.id}
+                  title={l.hint}
+                >
+                  {l.label}
+                </button>
+              ))}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {TOPICS.map((t) => (
@@ -392,14 +415,16 @@ export function LivePane({
         <Textarea value={draft} rows={2} onChange={(e) => setDraft(e.target.value)} onFocus={() => onTypingFocus?.(true)} onBlur={() => onTypingFocus?.(false)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(draft); } }}
           placeholder={listening ? "دارم گوش می‌دهم…" : `به ${currentLang?.native ?? "English"} یا فارسی بنویس…`}
-          className="max-h-36 min-h-14 w-full resize-none border-0 bg-transparent px-1 py-1 text-base text-ink shadow-none focus-visible:ring-0" disabled={busy} />
+          className="max-h-36 min-h-14 w-full resize-none border-0 bg-transparent px-1 py-1 text-base text-ink shadow-none placeholder:text-fg-subtle focus-visible:ring-0"
+          disabled={busy}
+        />
         <div className="mt-1 flex items-center gap-2">
           <PouyaFaceButton onClick={onVoiceCall} label="گفتگوی صوتی با پویا" disabled={busy} />
-          <Button type="button" size="icon" variant={listening ? "default" : "outline"} onClick={onMic} disabled={busy} className={cn("rounded-full", listening ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}>
+          <Button type="button" size="icon" variant={listening ? "default" : "outline"} onClick={onMic} disabled={busy} aria-label="میکروفون" className={cn("rounded-full", listening ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}>
             <Mic className="size-4" />
           </Button>
           <div className="flex-1" />
-          <Button type="submit" size="icon" disabled={busy || !draft.trim()} className="rounded-full bg-stage text-cream hover:bg-stage-deep">
+          <Button type="submit" size="icon" disabled={busy || !draft.trim()} aria-label="ارسال" className="rounded-full bg-stage text-cream hover:bg-stage-deep">
             <Send className="size-4" />
           </Button>
         </div>
