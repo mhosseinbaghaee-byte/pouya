@@ -579,67 +579,77 @@ export function PouyaMainApp() {
 
   if (!introDone) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-stage px-6 text-center text-cream">
-        <PouyaStage mood="intro" caption="سلام، من پویایم" immersive showCaption />
-        <button
-          type="button"
-          className="mt-6 h-12 rounded-full bg-cream px-8 font-medium text-ink"
-          onClick={() => {
-            try {
-              sessionStorage.setItem(INTRO_KEY, "1");
-            } catch {
-              /* ignore */
-            }
-            setIntroDone(true);
-          }}
-        >
-          شروع
-        </button>
-      </div>
+      <button
+        type="button"
+        className="relative flex min-h-dvh w-full items-center justify-center bg-stage"
+        onClick={() => {
+          sessionStorage.setItem(INTRO_KEY, "1");
+          setIntroDone(true);
+        }}
+        aria-label="ورود به پویا"
+      >
+        <div className="relative aspect-[9/16] h-[min(100dvh,100svh)] w-auto max-w-[100vw] overflow-hidden bg-stage">
+          <PouyaStage mood="intro" caption={"سلام من پویا هستم\nمربی زنده دانش و زبان"} immersive showCaption />
+          <p className="pointer-events-none absolute inset-x-0 bottom-[6%] text-center text-xs text-cream/80">
+            برای ادامه لمس کن
+          </p>
+        </div>
+      </button>
     );
   }
 
   return (
     <div
       className={cn(
-        "flex min-h-dvh flex-col",
+        "flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden text-fg",
         redShell ? "bg-stage" : "bg-background",
       )}
       dir="rtl"
     >
-      <header className="shrink-0 border-b border-white/10">
-        <div
-          className={cn(
-            "mx-auto flex w-full max-w-3xl items-center gap-2 px-3 py-2 sm:px-4",
-            redShell && "text-cream",
-          )}
+      <header
+        className={cn(
+          "flex w-full shrink-0 flex-col gap-2 px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2 sm:px-4",
+          redShell
+            ? "border-b border-white/10 bg-stage-deep/30 backdrop-blur-md"
+            : "border-b border-border bg-card/80 backdrop-blur-md",
+        )}
+      >
+        <nav
+          className={cn("pouya-glass-nav w-full min-w-0", redShell && "pouya-glass-nav-on-red")}
+          aria-label="بخش‌ها"
         >
-          <nav className={cn("pouya-glass-nav w-full min-w-0", redShell && "pouya-glass-nav-on-red")}>
           {(
             [
               ["chat", "گفتگو", MessageCircle],
-              ["live", "زنده", Languages],
-              ["quiz", "آزمون", Brain],
-              ["vault", "مغز دوم", Bookmark],
-              ["coaches", "مربی", GraduationCap],
-              ["account", "حساب", BookOpen],
+              ["live", "زبان", Languages],
+              ["coaches", "مربی‌ها", BookOpen],
+              ["quiz", "آزمون", GraduationCap],
+              ["vault", "مغز دوم", Brain],
+              ["account", "حساب", Bookmark],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "inline-flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] sm:flex-row sm:gap-1.5 sm:text-xs",
-                tab === id ? "bg-white/20 font-medium" : "opacity-70 hover:opacity-100",
-              )}
+              onClick={() => {
+                if (id !== "chat") {
+                  audioRef.current?.pause();
+                  window.speechSynthesis?.cancel();
+                  voiceActiveRef.current = false;
+                }
+                setTab(id);
+                if (id === "live") setMode("live");
+                else if (id === "chat") setMode("chat");
+              }}
+              className={cn("pouya-nav-btn", tab === id && "pouya-nav-btn-active")}
+              aria-current={tab === id ? "page" : undefined}
+              aria-label={label}
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" aria-hidden />
               <span className="truncate">{label}</span>
             </button>
           ))}
         </nav>
-      </div>
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col">
@@ -659,7 +669,7 @@ export function PouyaMainApp() {
             scrollerRef={scrollerRef}
             onSend={(t, a) => void send(t, mode, undefined, a)}
             onLesson={(t) => void send(t, "lesson")}
-            onDaily={() => void send("یک موضوع آموزشی روزانه به من بگو", "chat")}
+            onDaily={() => void send("یک موضوع آموزشی روزانه به من بگو", "daily")}
             onFact={() => void send("یک واقعیت علمی جالب بگو", "chat")}
             onMic={() => toggleMic("chat")}
             onLivePractice={openLivePractice}
