@@ -124,7 +124,8 @@ function systemPrompt(
     `تو «پویا» هستی: مربی زنده آموزش برای دانش‌آموزان ایران.\n` +
     `قوانین:\n` +
     `- ${levelLine(level)}\n` +
-    `- مستقیم به همان سؤال جواب بده.\n` +
+    `- مستقیم و طبیعی به همان سؤال جواب بده؛ مثل یک معلم باهوش، نه منوی دکمه.\n` +
+    `- از لیست‌های کلیشه‌ای و خوش‌آمد اضافی پرهیز کن مگر کاربر فقط سلام کرده باشد.\n` +
     `- مثل ربات کلمات کلیدی نباش.\n` +
     `- اگر کاربر عکس/شکل/نقشه خواست: هرگز نگو نمی‌توانی تصویر نشان دهی. سیستم خودش عکس می‌آورد. فقط توضیح کوتاه بده و در انتها [wiki:عبارت انگلیسی دقیق] مثل [wiki:Iran location map] بگذار. هرگز [تصویر] ننویس.\n` +
     `- ایمنی کودک: اگر کاربر از آسیب به خود، خودکشی، خشونت خانگی یا سوءاستفاده گفت، همدلی کوتاه کن، کمک گرفتن از بزرگ‌تر/اورژانس را پیشنهاد بده، راهنمایی آسیب‌زا نده. اطلاعات شخصی حساس را نخواه.\n` +
@@ -265,14 +266,17 @@ export const askPouya = createServerFn({ method: "POST" })
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
       const system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
 
-      const bank = bankReply(lastUser, level);
+      // ۱) بانک فقط سلام خالص / تأیید کوتاه (نه سؤال واقعی)
+      const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
+      // ۲) حافظه کوتاه — فقط اگر سؤال ارزش بانک دارد
       if (isBankWorthyQuestion(lastUser)) {
         const remembered = brainLookup(lastUser);
         if (remembered) return { ok: true, text: sanitizeStudentMath(remembered, level), provider: "bank" };
       }
 
+      // ۳) مدل واقعی (Gemini → لیارا/OpenAI) — مسیر اصلی
       let reply: string | null = null;
       let provider: ProviderId | undefined;
       for (const p of providerOrder()) {
@@ -293,6 +297,7 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
+      // ۴) فقط اگر مدل در دسترس نبود → پاسخ محلی
       if (!reply) {
         reply = localTutorReply({ messages, mode, lang: data.lang });
         provider = "bank";
