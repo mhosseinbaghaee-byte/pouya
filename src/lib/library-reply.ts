@@ -1,5 +1,32 @@
 import { LESSONS, matchLesson, todayFact, localDaily, localLanguage } from "./library-data";
 
+const GREET_WORDS = ["سلام", "درود", "hi", "hello", "hey", "صبح بخیر", "عصر بخیر", "شب بخیر"];
+
+/** فقط سلام خالص (اختیاری + نام) — نه «سلام کوه چیه». */
+export function isPureGreeting(text: string): boolean {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return false;
+  let rest = lower;
+  let matched = false;
+  for (const g of GREET_WORDS) {
+    if (
+      rest === g ||
+      rest.startsWith(g + " ") ||
+      rest.startsWith(g + "!") ||
+      rest.startsWith(g + "؟") ||
+      rest.startsWith(g + "?")
+    ) {
+      rest = rest.slice(g.length).replace(/^[!؟?\s،,]+/u, "").trim();
+      matched = true;
+      break;
+    }
+  }
+  if (!matched) return false;
+  if (!rest) return true;
+  if (/^(پویا|pouya|جان|عزیزم|رفیق)([!؟?\s]*)$/iu.test(rest)) return true;
+  return false;
+}
+
 export function localTutorReply(opts: {
   messages: { role: "user" | "assistant"; content: string }[];
   mode: "chat" | "daily" | "lesson" | "live" | "language";
@@ -53,22 +80,15 @@ export function localTutorReply(opts: {
     );
   }
 
-  const greetings = ["سلام", "درود", "hi", "hello", "hey", "صبح بخیر", "عصر بخیر", "شب بخیر"];
-  const isGreeting = greetings.some(
-    (g) =>
-      lastLower === g ||
-      lastLower.startsWith(g + " ") ||
-      lastLower.startsWith(g + "!") ||
-      lastLower.startsWith(g + "؟"),
-  );
   const ack = ["خوبی", "خوبی؟", "چطوری", "چطوری؟", "چه خبر", "چه خبر؟", "مرسی", "ممنون", "باشه", "اوکی", "ok", "okay", "آره", "بله", "نه"];
   const isAck = ack.some((a) => lastLower === a || lastLower === a + "?" || lastLower === a + "؟");
 
-  if (isGreeting) {
+  // فقط سلام خالص — «سلام کوه چیه» نباید منو بدهد
+  if (isPureGreeting(last)) {
     if (userTurns.length <= 1) {
-      return `سلام! من پویام — مربی زنده‌ات.\n\nچی دوست داری الان؟\n• یک مفهوم علمی یا تاریخی\n• تمرین زبان\n• آزمون کوتاه\n• یا مرور روزانه\n\nهمین‌جا بپرس، یا از دکمه‌های بالا یکی را بزن.`;
+      return `سلام! من پویام. هر سؤالی داری مستقیم بپرس — مثلاً «کوه چیست؟» یا «گرانش یعنی چه؟»`;
     }
-    return `سلام دوباره. ادامه بدهیم؟ موضوع قبلی را باز کنیم یا چیز تازه‌ای بپرسی.`;
+    return `سلام دوباره. موضوع را بگو تا ادامه بدهیم.`;
   }
 
   if (isAck) {
@@ -89,7 +109,7 @@ export function localTutorReply(opts: {
     return `${pick.title}\n\n${pick.body}`;
   }
 
-  // پاسخ عمومی: موضوع را عوض نکن؛ از کاربر بخواه واضح‌تر بپرسد فقط اگر خیلی مبهم است
+  // پاسخ عمومی: فقط وقتی مدل در دسترس نیست
   if (last.length >= 2) {
     return (
       `سؤالت را گرفتم: «${last.slice(0, 120)}».\n\n` +
