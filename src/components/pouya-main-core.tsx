@@ -81,7 +81,7 @@ function spokenSlice(text: string) {
 export function PouyaMainApp() {
   const [tab, setTab] = useState<Tab>("chat");
   const [level, setLevel] = useState<Level>("teen");
-  const [voiceOn, setVoiceOn] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(true);
   const [mood, setMood] = useState<StageMood>("idle");
   const [mode, setMode] = useState<ChatMode>("chat");
   const [lang, setLang] = useState<LangCode>("en");
@@ -107,6 +107,7 @@ export function PouyaMainApp() {
   const voiceCallRef = useRef(false);
   const callMutedRef = useRef(false);
   const busyRef = useRef(false);
+  const voiceOnRef = useRef(true);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
@@ -119,7 +120,7 @@ export function PouyaMainApp() {
     try {
       const prof = loadProfile();
       if (prof.level === "kid" || prof.level === "teen" || prof.level === "adult") setLevel(prof.level);
-      setVoiceOn(Boolean(prof.voiceOn));
+      setVoiceOn(prof.voiceOn !== false);
       if (prof.preferredAssistantId) setAssistantId(prof.preferredAssistantId);
     } catch {
       /* ignore */
@@ -131,6 +132,10 @@ export function PouyaMainApp() {
     }
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    voiceOnRef.current = voiceOn;
+  }, [voiceOn]);
 
   useEffect(() => {
     if (!messages.some((x) => x.role === "assistant")) return;
@@ -148,7 +153,7 @@ export function PouyaMainApp() {
   }
 
   async function playVoice(text: string) {
-    if (!voiceCallRef.current) return;
+    if (!voiceCallRef.current && !voiceOnRef.current) return;
     const spoken = spokenSlice(text);
     if (!spoken) return;
     const finish = () => {
@@ -168,7 +173,7 @@ export function PouyaMainApp() {
         audioRef.current = audio;
         voiceActiveRef.current = true;
         setMood("talk");
-        setVoicePhase("talk");
+        if (voiceCallRef.current) setVoicePhase("talk");
         await new Promise<void>((resolve) => {
           audio.onended = () => {
             finish();
@@ -203,7 +208,7 @@ export function PouyaMainApp() {
       u.rate = 1;
       voiceActiveRef.current = true;
       setMood("talk");
-      setVoicePhase("talk");
+      if (voiceCallRef.current) setVoicePhase("talk");
       await new Promise<void>((resolve) => {
         u.onend = () => {
           finish();
@@ -288,7 +293,7 @@ export function PouyaMainApp() {
           : localTutorReply({ messages: history.slice(-12), mode: nextMode, lang: useLang });
       const withFig = ensureDiagram(content, reply);
       setMood("talk");
-      if (voiceCallRef.current) void playVoice(withFig);
+      if (voiceCallRef.current || voiceOnRef.current) void playVoice(withFig);
       setMessages([...history, { role: "assistant", content: withFig }]);
       try {
         noteInteraction({ userText: content, kind: "ask" });
@@ -302,7 +307,7 @@ export function PouyaMainApp() {
       const reply = localTutorReply({ messages: history.slice(-12), mode: nextMode, lang: useLang });
       const withFig = ensureDiagram(content, reply);
       setMood("talk");
-      if (voiceCallRef.current) void playVoice(withFig);
+      if (voiceCallRef.current || voiceOnRef.current) void playVoice(withFig);
       setMessages([...history, { role: "assistant", content: withFig }]);
       setTyped("");
       if (!voiceActiveRef.current) setMood("idle");
@@ -547,6 +552,7 @@ export function PouyaMainApp() {
   function toggleCallMute() {
     const next = !callMutedRef.current;
     callMutedRef.current = next;
+    setCallMuted(next);
     if (next) {
       stopMic();
       audioRef.current?.pause();

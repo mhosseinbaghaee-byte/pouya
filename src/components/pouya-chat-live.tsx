@@ -1,5 +1,5 @@
 import { type RefObject, useRef, useState } from "react";
-import { Bookmark, BookOpen, Check, Copy, History, Languages, Mic, Plus, Send, Trash2, X } from "lucide-react";
+import { Bookmark, BookOpen, Check, Copy, History, Languages, Mic, Plus, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import {
   LANGUAGES,
   LEVELS,
@@ -166,7 +166,7 @@ function HistorySheet({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {items.length === 0 ? (
-            <p className="px--3 py-8 text-center text-sm text-cream/60">هنوز گفتگویی ذخیره نشده.</p>
+            <p className="px-3 py-8 text-center text-sm text-cream/60">هنوز گفتگویی ذخیره نشده.</p>
           ) : (
             <ul className="space-y-1">
               {items.map((it) => (
@@ -213,7 +213,6 @@ export function ChatPane({
   const empty = messages.length === 0 && !typed;
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState<ChatAttachment | null>(null);
-  void voiceOn; void setVoiceOn;
 
   function pickFile(file: File | null | undefined) {
     if (!file) return;
@@ -349,6 +348,27 @@ export function ChatPane({
           <input ref={fileRef} type="file" accept="image/*,text/plain,.txt" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
           <Button type="button" size="icon" variant="outline" disabled={busy} onClick={() => fileRef.current?.click()} aria-label="پیوست فایل یا عکس" className="rounded-full border-border/60 bg-white/70">
             <Plus className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant={voiceOn ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => {
+              const next = !voiceOn;
+              setVoiceOn(next);
+              try {
+                saveProfile({ voiceOn: next });
+              } catch {
+                /* ignore */
+              }
+            }}
+            aria-label={voiceOn ? "خاموش کردن سخن‌گو" : "روشن کردن سخن‌گو"}
+            aria-pressed={voiceOn}
+            className={cn("rounded-full", voiceOn ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}
+            title="سخن‌گوی پویا"
+          >
+            {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
           </Button>
           <PouyaFaceButton onClick={onVoiceCall} label="گفتگوی صوتی با پویا" disabled={busy} />
           <Button type="button" size="icon" variant={listening ? "default" : "outline"} onClick={onMic} disabled={busy} aria-label="میکروفون" className={cn("rounded-full", listening ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}>
