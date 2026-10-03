@@ -718,21 +718,21 @@ export function PouyaMainApp() {
         {tab === "coaches" ? (
           <CoachesPane
             activeId={assistantId}
-            onSelect={(id) => setAssistantId(id)}
+            onSelect={(a) => setAssistantId(a.id)}
             onStart={(a) => {
               setAssistantId(a.id);
               setTab("chat");
               setMode("chat");
               void send(a.starter || `سلام، من می‌خواهم با مربی ${a.name} کار کنم.`, "chat");
             }}
-            onAskLesson={(a) => {
-              setAssistantId(a.id);
+            onAskLesson={(prompt) => {
               setTab("chat");
-              void send(`یک درس کوتاه از ${a.name} برایم بگو`, "lesson");
+              setMode("lesson");
+              void send(prompt, "lesson");
             }}
           />
         ) : null}
-        {tab === "quiz" ? <QuizPane /> : null}
+        {tab === "quiz" ? <QuizPane level={level} setMood={setMood} /> : null}
         {tab === "vault" ? <VaultPane /> : null}
         {tab === "account" ? <AccountPane /> : null}
       </main>
