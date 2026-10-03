@@ -206,6 +206,21 @@ export function PouyaMainApp() {
       const u = new SpeechSynthesisUtterance(spoken);
       u.lang = speakLang;
       u.rate = 1;
+      try {
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        const want = speakLang.toLowerCase();
+        const pick =
+          voices.find((v) => v.lang?.toLowerCase() === want) ||
+          voices.find((v) => v.lang?.toLowerCase().startsWith(want.slice(0, 2))) ||
+          voices.find((v) => /fa|per|iran/i.test(`${v.lang} ${v.name}`)) ||
+          voices.find((v) => /ar[-_]?/i.test(v.lang || ""));
+        if (pick) {
+          u.voice = pick;
+          u.lang = pick.lang || speakLang;
+        }
+      } catch {
+        /* ignore */
+      }
       voiceActiveRef.current = true;
       setMood("talk");
       if (voiceCallRef.current) setVoicePhase("talk");

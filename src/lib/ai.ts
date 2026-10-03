@@ -131,227 +131,193 @@ function systemPrompt(
     `- فقط محتوای جنسی ممنوع است.\n` +
     `- در صورت نیاز [diagram:id] از این‌ها: ${DIAGRAM_IDS}\n` +
     `- زبان پاسخ = زبان پیام کاربر.\n` +
-    `- ${textbookStyleRules(level)}` +
+    textbookStyleRules(level) +
     vision +
     memory +
-    (coach ? `\n\n${coach}` : "");
-  if (mode === "live" || mode === "language") return `${base}\nحالت تمرین زبان (${lang.native}).`;
+    (coach ? `\n${coach}` : "");
+
+  if (mode === "live" || mode === "language") {
+    return (
+      base +
+      `\nحالت آموزش زبان زنده (${lang.labelFa} / ${lang.labelEn}):\n` +
+      `- جواب اصلی به ${lang.labelEn} باشد.\n` +
+      `- غلط‌های کاربر را مودب اصلاح کن.\n` +
+      `- ترجمه‌ی کوتاه فارسی در پرانتز مجاز است.\n`
+    );
+  }
+  if (mode === "lesson") {
+    return base + `\nحالت درس: مرحله‌ای، با مثال، کوتاه و قابل فهم.\n`;
+  }
+  if (mode === "daily") {
+    return base + `\nحالت موضوع روزانه: یک موضوع آموزشی جذاب و کوتاه.\n`;
+  }
   return base;
 }
 
-type OpenAIContent =
-  | string
-  | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
-
-async function callOpenAI(
-  system: string,
-  history: ChatMsg[],
-  maxTokens: number,
-  imageDataUrl?: string,
-): Promise<ChatResult> {
-  const key = process.env.LIARA_API_KEY || process.env.OPENAI_API_KEY;
-  const baseUrl = (process.env.LIARA_BASE_URL || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1")
-    .trim()
-    .replace(/\/+$/, "")
-    .replace(/\/chat\/completions$/, "");
-  const model = process.env.LIARA_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
-  if (!key) return { ok: false, error: "no_openai_key" };
-  const messages: { role: string; content: OpenAIContent }[] = [{ role: "system", content: system }];
-  const lastIdx = history.length - 1;
-  for (let i = 0; i < history.length; i++) {
-    const m = history[i];
-    if (m.role === "user" && i === lastIdx && imageDataUrl) {
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: m.content },
-          { type: "image_url", image_url: { url: imageDataUrl } },
-        ],
-      });
-    } else messages.push({ role: m.role, content: m.content });
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), imageDataUrl ? 45000 : 15000);
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.5 }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return { ok: false, error: `openai_${res.status}` };
-    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const text = json.choices?.[0]?.message?.content?.trim();
-    if (!text) return { ok: false, error: "openai_empty" };
-    return { ok: true, text, provider: "openai" };
-  } catch {
-    clearTimeout(timeout);
-    return { ok: false, error: "openai_fail" };
-  }
+function providerOrder(): ProviderId[] {
+  const raw = process.env.AI_PROVIDER_ORDER || "";
+  const list = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s): s is ProviderId => s === "bank" || s === "openai" || s === "gemini");
+  return list.length ? list : DEFAULT_ORDER;
 }
 
-async function callGemini(
-  system: string,
-  history: ChatMsg[],
-  maxTokens: number,
-  imageDataUrl?: string,
-): Promise<ChatResult> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return { ok: false, error: "no_gemini_key" };
-  const parsed = imageDataUrl ? parseDataUrl(imageDataUrl) : null;
-  const contents = history.map((m, i) => {
-    const role = m.role === "assistant" ? "model" : "user";
-    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{ text: m.content }];
-    if (parsed && m.role === "user" && i === history.length - 1) {
-      parts.push({ inlineData: { mimeType: parsed.mime, data: parsed.b64 } });
-    }
-    return { role, parts };
-  });
-  while (contents.length > 1 && contents[0].role === "model") contents.shift();
-  const deadline = Date.now() + (imageDataUrl ? 20000 : 9000);
-  for (const model of geminiModels()) {
-    if (Date.now() > deadline) break;
+async function callGemini(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!key) return null;
+  const models = geminiModels();
+  const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
+  if (image) {
+    const parsed = parseDataUrl(image);
+    if (parsed) parts.push({ inline_data: { mime_type: parsed.mime, data: parsed.b64 } });
+  }
+  const contents = messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+  if (parts.length) {
+    const last = contents[contents.length - 1];
+    if (last && last.role === "user") last.parts = [...parts, ...last.parts];
+  }
+  for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), imageDataUrl ? 12000 : 6000);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
+          system_instruction: { parts: [{ text: system }] },
           contents,
-          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.5 },
+          generationConfig: { temperature: 0.6, maxOutputTokens: 2048 },
         }),
-        signal: controller.signal,
       });
-      clearTimeout(timeout);
-      if (res.status === 401 || res.status === 403) return { ok: false, error: `gemini_auth_${res.status}` };
-      if (!res.ok) continue;
-      const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-      const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("").trim();
-      if (text) return { ok: true, text, provider: `gemini:${model}` };
-    } catch {
-      /* next */
+      if (!res.ok) {
+        logAi("gemini_http", model, res.status);
+        continue;
+      }
+      const json = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+      if (text.trim()) return text.trim();
+    } catch (e) {
+      logAi("gemini_err", model, e);
     }
   }
-  return { ok: false, error: "gemini_fail" };
+  return null;
 }
 
-function providerOrder(): ProviderId[] {
-  const raw = process.env.AI_PROVIDER_ORDER;
-  if (!raw) return DEFAULT_ORDER;
-  const parts = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean) as ProviderId[];
-  const valid = parts.filter((p) => p === "bank" || p === "openai" || p === "gemini");
-  return valid.length ? valid : DEFAULT_ORDER;
-}
-
-async function chatComplete(
-  system: string,
-  history: ChatMsg[],
-  maxTokens: number,
-  imageDataUrl?: string,
-): Promise<ChatResult> {
-  for (const p of providerOrder()) {
-    if (p === "bank") continue;
-    const r =
-      p === "openai"
-        ? await callOpenAI(system, history, maxTokens, imageDataUrl)
-        : await callGemini(system, history, maxTokens, imageDataUrl);
-    if (r.ok) return r;
-    logAi("provider_fail", p, r);
+async function callOpenAI(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
+  const key = process.env.OPENAI_API_KEY || process.env.LIARA_API_KEY;
+  if (!key) return null;
+  const base = (
+    process.env.OPENAI_BASE_URL ||
+    process.env.LIARA_BASE_URL ||
+    "https://api.openai.com/v1"
+  )
+    .trim()
+    .replace(/\/+$/, "");
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const msgs: Array<{ role: string; content: unknown }> = [{ role: "system", content: system }];
+  for (const m of messages) {
+    if (m.role === "user" && image && m === messages[messages.length - 1]) {
+      const parsed = parseDataUrl(image);
+      if (parsed) {
+        msgs.push({
+          role: "user",
+          content: [
+            { type: "text", text: m.content },
+            { type: "image_url", image_url: { url: image } },
+          ],
+        });
+        continue;
+      }
+    }
+    msgs.push({ role: m.role, content: m.content });
   }
-  logAi("all_providers_failed");
-  return { ok: false, error: "all_providers_failed" };
-}
-
-async function withLocalVisual(lastUser: string, text: string): Promise<string> {
-  text = text
-    .replace(/\[تصویر\]/g, "")
-    .replace(/متا[س‌]?سفانه[^.\n]{0,120}(تصویر|عکس)[^.\n]{0,160}[.?؟!]?/gi, "")
-    .replace(/نمی[-\s‌]*توانم[^.\n]{0,60}(تصویر|عکس)[^.\n]{0,100}[.?؟!]?/gi, "")
-    .replace(/as a text[- ]?based model[^.\n]{0,120}/gi, "")
-    .replace(/I (?:cannot|can't) (?:show|display)[^.\n]{0,80}/gi, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  if (/\[diagram:/i.test(text) || /!\[[^\]]*\]\(https?:\/\//i.test(text)) return text;
-  // فقط وقتی کاربر عکس خواسته یا مدل تگ گذاشته
-  if (!looksVisual(lastUser) && !/\[wiki:/i.test(text)) return text;
-  const d = matchDiagram(lastUser);
-  if (d) return `${text}\n\n${diagramTag(d.id)}`;
-  const q = queryFromPersian(lastUser, true);
-  if (!q || q.length < 2) return text;
-  const img = await findWikiImage(q);
-  return img ? `${text}\n\n${wikiMarkdown(img)}` : text;
+  try {
+    const res = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: msgs, temperature: 0.6 }),
+    });
+    if (!res.ok) {
+      logAi("openai_http", res.status);
+      return null;
+    }
+    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const text = json.choices?.[0]?.message?.content || "";
+    return text.trim() || null;
+  } catch (e) {
+    logAi("openai_err", e);
+    return null;
+  }
 }
 
 export const askPouya = createServerFn({ method: "POST" })
   .validator((input: unknown) => ChatInput.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<ChatResult> => {
     try {
-      const short = data.mode === "live" || data.mode === "language";
-      const hasImage = Boolean(data.image && parseDataUrl(data.image));
-      const lastUser = [...data.messages].reverse().find((m) => m.role === "user")?.content || "";
-      const history = data.messages.map((m) =>
-        m.role === "assistant" ? { ...m, content: m.content.replace(/!\[[^\]]*\]\([^)]*\)/g, "[تصویر]") } : m,
-      );
+      const level = data.level;
+      const mode = data.mode as ChatMode;
+      const messages = data.messages as ChatMsg[];
+      const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+      const system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
 
-      // ایمنی آفلاین قبل از هر چیز
-      if (/(خودمو?\s*بکشم|خودکشی|میخوام\s*بمیرم|کتک\s*میزنه|سوءاستفاده)/.test(lastUser)) {
-        return {
-          ok: true as const,
-          text:
-            "متأسفم که این حس را داری. تو تنها نیستی.\n\n" +
-            "لطفاً با یک بزرگ‌تر مورد اعتماد حرف بزن یا با اورژانس اجتماعی (۱۲۳) تماس بگیر.\n" +
-            "من جای انسان واقعی نیستم، اما برای سؤال درسی اینجام.",
-          provider: "safety",
-        };
+      const bank = bankReply(lastUser, level);
+      if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
+
+      if (isBankWorthyQuestion(lastUser)) {
+        const remembered = brainLookup(lastUser);
+        if (remembered) return { ok: true, text: sanitizeStudentMath(remembered, level), provider: "bank" };
       }
 
-      if (!hasImage && !short && isBankWorthyQuestion(lastUser)) {
-        const learned = brainLookup(lastUser, data.level, data.assistantId);
-        if (learned?.a) {
-          return { ok: true as const, text: await withLocalVisual(lastUser, learned.a), provider: "brain" };
+      let reply: string | null = null;
+      let provider: ProviderId | undefined;
+      for (const p of providerOrder()) {
+        if (p === "bank") continue;
+        if (p === "gemini") {
+          reply = await callGemini(messages, system, data.image);
+          if (reply) {
+            provider = "gemini";
+            break;
+          }
+        }
+        if (p === "openai") {
+          reply = await callOpenAI(messages, system, data.image);
+          if (reply) {
+            provider = "openai";
+            break;
+          }
         }
       }
 
-      if (!hasImage && !short) {
-        const b = bankReply({ messages: data.messages, mode: data.mode, lang: data.lang });
-        if (b) return { ok: true as const, text: await withLocalVisual(lastUser, b), provider: "bank" };
+      if (!reply) {
+        reply = localTutorReply({ messages, mode, lang: data.lang });
+        provider = "bank";
       }
 
-      const result = await chatComplete(
-        systemPrompt(data.level, data.mode, data.lang, data.assistantId, hasImage, data.learningBrief),
-        history,
-        short ? 1024 : 2048,
-        hasImage ? data.image : undefined,
-      );
+      let text = sanitizeStudentMath(reply, level);
+      if (looksVisual(lastUser) && !/\[wiki:/i.test(text)) {
+        const q = queryFromPersian(lastUser) || lastUser;
+        const tags = resolveWikiTags(q);
+        if (tags.length) text = `${text}\n\n${wikiMarkdown(tags[0]!)}`;
+      }
+      text = stripForeignImages(text);
 
-      if (result.ok) {
-        let text = stripForeignImages(sanitizeStudentMath(result.text, data.level));
-        const wiki = await resolveWikiTags(text);
-        text = wiki.text;
-        if (!/!\[[^\]]*\]\(https?:\/\//i.test(text)) {
-          text = await withLocalVisual(lastUser, text);
-        } else {
-          text = text.replace(/\[تصویر\]/g, "").trim();
+      if (isBankWorthyQuestion(lastUser) && provider && provider !== "bank") {
+        try {
+          brainRemember(lastUser, text);
+        } catch {
+          /* ignore */
         }
-        if (!/نمی[-\s‌]*توانم.*تصویر|cannot show/i.test(text)) {
-          brainRemember(lastUser, text, { level: data.level, assistantId: data.assistantId });
-        }
-        return { ok: true as const, text, provider: result.provider };
       }
 
-      const fallback = localTutorReply({
-        messages: data.messages,
-        mode: data.mode === "language" ? "live" : data.mode,
-        lang: data.lang,
-      });
-      return { ok: true as const, text: await withLocalVisual(lastUser, fallback), provider: "local" };
+      return { ok: true, text, provider };
     } catch (e) {
-      logAi("handler_error", e);
-      return { ok: false as const, error: "handler_error" };
+      logAi("ask_fail", e);
+      return { ok: false, error: "ask_fail" };
     }
   });
 
@@ -371,41 +337,87 @@ export const speakPouya = createServerFn({ method: "POST" })
     try {
       const text = data.text.replace(/[*_`#>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
       if (!text) return { ok: false as const, error: "empty" };
-      const key =
+
+      // TTS must NOT reuse Liara chat base URL — most OpenAI-compatible proxies
+      // only implement /chat/completions and return 404 for /audio/speech.
+      const dedicatedTtsKey =
         process.env.LIARA_TTS_API_KEY ||
         process.env.OPENAI_TTS_KEY ||
-        process.env.LIARA_API_KEY ||
-        process.env.OPENAI_API_KEY;
-      const baseUrl = (
+        "";
+      const chatKey = process.env.LIARA_API_KEY || process.env.OPENAI_API_KEY || "";
+      const key = dedicatedTtsKey || chatKey;
+      if (!key) return { ok: false as const, error: "no_tts_key" };
+
+      const dedicatedTtsBase = (
         process.env.LIARA_TTS_BASE_URL ||
         process.env.OPENAI_TTS_BASE_URL ||
-        process.env.LIARA_BASE_URL ||
-        process.env.OPENAI_BASE_URL ||
-        "https://api.openai.com/v1"
+        ""
       )
         .trim()
         .replace(/\/+$/, "")
         .replace(/\/audio\/speech$/, "");
-      if (!key) return { ok: false as const, error: "no_tts_key" };
+
+      // Prefer dedicated TTS base; else official OpenAI when using OPENAI_TTS_KEY.
+      const baseUrl =
+        dedicatedTtsBase ||
+        (dedicatedTtsKey ? "https://api.openai.com/v1" : "") ||
+        (
+          process.env.LIARA_BASE_URL ||
+          process.env.OPENAI_BASE_URL ||
+          "https://api.openai.com/v1"
+        )
+          .trim()
+          .replace(/\/+$/, "")
+          .replace(/\/audio\/speech$/, "");
+
       const model = process.env.OPENAI_TTS_MODEL || "tts-1";
-      const voice = process.env.OPENAI_TTS_VOICE || "echo";
+      const voice = process.env.OPENAI_TTS_VOICE || "onyx";
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 15000);
       let res: Response;
       try {
         res = await fetch(`${baseUrl}/audio/speech`, {
           method: "POST",
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model, voice, input: text, response_format: "mp3" }),
+          body: JSON.stringify({
+            model,
+            voice,
+            input: text,
+            response_format: "mp3",
+          }),
           signal: controller.signal,
         });
       } finally {
         clearTimeout(timeout);
       }
-      if (!res.ok) return { ok: false as const, error: `tts_${res.status}` };
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        logAi("tts_http", res.status, baseUrl, errBody.slice(0, 200));
+        if (baseUrl !== "https://api.openai.com/v1" && dedicatedTtsKey) {
+          try {
+            const res2 = await fetch("https://api.openai.com/v1/audio/speech", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${dedicatedTtsKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ model, voice, input: text, response_format: "mp3" }),
+            });
+            if (res2.ok) {
+              const buf2 = Buffer.from(await res2.arrayBuffer());
+              return { ok: true as const, audio: buf2.toString("base64"), mime: "audio/mpeg" };
+            }
+            logAi("tts_openai_retry", res2.status);
+          } catch (e) {
+            logAi("tts_openai_retry_fail", e);
+          }
+        }
+        return { ok: false as const, error: `tts_${res.status}` };
+      }
       const buf = Buffer.from(await res.arrayBuffer());
       return { ok: true as const, audio: buf.toString("base64"), mime: "audio/mpeg" };
-    } catch {
+    } catch (e) {
+      logAi("tts_fail", e);
       return { ok: false as const, error: "tts_fail" };
     }
   });
