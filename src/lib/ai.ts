@@ -339,18 +339,44 @@ export const speakPouya = createServerFn({ method: "POST" })
       const text = data.text.replace(/[*_`#>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
       if (!text) return { ok: false as const, error: "empty" };
 
-      const ttsKey = (process.env.OPENAI_TTS_KEY || process.env.LIARA_TTS_API_KEY || "").trim();
-      const chatKey = (process.env.OPENAI_API_KEY || process.env.LIARA_API_KEY || "").trim();
-      const model = process.env.OPENAI_TTS_MODEL || "tts-1";
+      const key = (
+        process.env.OPENAI_API_KEY ||
+        process.env.LIARA_API_KEY ||
+        process.env.OPENAI_TTS_KEY ||
+        ""
+      ).trim();
+      if (!key) return { ok: false as const, error: "no_tts_key" };
+
+      const baseUrl = (
+        process.env.OPENAI_BASE_URL ||
+        process.env.LIARA_BASE_URL ||
+        process.env.OPENAI_TTS_BASE_URL ||
+        "https://api.openai.com/v1"
+      )
+        .trim()
+        .replace(/\/+$/, "")
+        .replace(/\/audio\/speech$/, "");
+
+      const isLiara = /liara\.ir|ai\.liara/i.test(baseUrl);
       const voice = process.env.OPENAI_TTS_VOICE || "onyx";
+      const envModel = (process.env.OPENAI_TTS_MODEL || "").trim();
+
+      const models = (
+        envModel
+          ? [envModel, "openai/tts-1", "google/gemini-3.1-flash-tts-preview", "tts-1"]
+          : isLiara
+            ? ["openai/tts-1", "google/gemini-3.1-flash-tts-preview", "tts-1"]
+            : ["tts-1", "openai/tts-1"]
+      ).filter((m, i, arr) => m && arr.indexOf(m) === i);
 
       async function trySpeech(
         base: string,
         apiKey: string,
+        model: string,
       ): Promise<{ ok: true; audio: string; mime: string } | { ok: false; status: number }> {
         if (!apiKey || !base) return { ok: false, status: 0 };
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
+        const timeout = setTimeout(() => controller.abort(), 25000);
         try {
           const res = await fetch(`${base}/audio/speech`, {
             method: "POST",
@@ -360,53 +386,26 @@ export const speakPouya = createServerFn({ method: "POST" })
           });
           if (!res.ok) {
             const errBody = await res.text().catch(() => "");
-            logAi("tts_http", res.status, base, errBody.slice(0, 160));
+            logAi("tts_http", res.status, base, model, errBody.slice(0, 200));
             return { ok: false, status: res.status };
           }
           const buf = Buffer.from(await res.arrayBuffer());
+          if (!buf.length) return { ok: false, status: 204 };
           return { ok: true, audio: buf.toString("base64"), mime: "audio/mpeg" };
         } catch (e) {
-          logAi("tts_fetch_fail", base, e);
+          logAi("tts_fetch_fail", base, model, e);
           return { ok: false, status: 0 };
         } finally {
           clearTimeout(timeout);
         }
       }
 
-      const chatBase = (
-        process.env.LIARA_TTS_BASE_URL ||
-        process.env.OPENAI_TTS_BASE_URL ||
-        process.env.LIARA_BASE_URL ||
-        process.env.OPENAI_BASE_URL ||
-        ""
-      )
-        .trim()
-        .replace(/\/+$/, "")
-        .replace(/\/audio\/speech$/, "");
-
-      // 1) کلید TTS جدا → اول OpenAI رسمی
-      if (ttsKey) {
-        const a = await trySpeech("https://api.openai.com/v1", ttsKey);
-        if (a.ok) return { ok: true as const, audio: a.audio, mime: a.mime };
-        if (chatBase && chatBase !== "https://api.openai.com/v1") {
-          const b = await trySpeech(chatBase, ttsKey);
-          if (b.ok) return { ok: true as const, audio: b.audio, mime: b.mime };
-        }
+      for (const model of models) {
+        const r = await trySpeech(baseUrl, key, model);
+        if (r.ok) return { ok: true as const, audio: r.audio, mime: r.mime };
       }
 
-      // 2) کلید چت روی base خودش
-      if (chatKey && chatBase) {
-        const c = await trySpeech(chatBase, chatKey);
-        if (c.ok) return { ok: true as const, audio: c.audio, mime: c.mime };
-      }
-
-      // 3) کلید چت شبیه OpenAI
-      if (chatKey && chatKey.startsWith("sk-")) {
-        const d = await trySpeech("https://api.openai.com/v1", chatKey);
-        if (d.ok) return { ok: true as const, audio: d.audio, mime: d.mime };
-      }
-
-      logAi("tts_all_failed", { hasTtsKey: !!ttsKey, hasChatKey: !!chatKey, chatBase });
+      logAi("tts_all_failed", { baseUrl, models, isLiara });
       return { ok: false as const, error: "tts_unavailable" };
     } catch (e) {
       logAi("tts_fail", e);
