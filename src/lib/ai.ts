@@ -339,20 +339,21 @@ export const speakPouya = createServerFn({ method: "POST" })
       const text = data.text.replace(/[*_`#>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
       if (!text) return { ok: false as const, error: "empty" };
 
-      // فقط کلید اختصاصی TTS — هرگز OPENAI_API_KEY لیارا را برای /audio/speech نفرست
+      // همان زنجیره کلید قبلی که کار می‌کرد
       const key = (
         process.env.LIARA_TTS_API_KEY ||
         process.env.OPENAI_TTS_KEY ||
+        process.env.LIARA_API_KEY ||
+        process.env.OPENAI_API_KEY ||
         ""
       ).trim();
-      if (!key) {
-        logAi("tts_skip", "no OPENAI_TTS_KEY / LIARA_TTS_API_KEY");
-        return { ok: false as const, error: "no_tts_key" };
-      }
+      if (!key) return { ok: false as const, error: "no_tts_key" };
 
       const baseUrl = (
         process.env.LIARA_TTS_BASE_URL ||
         process.env.OPENAI_TTS_BASE_URL ||
+        process.env.LIARA_BASE_URL ||
+        process.env.OPENAI_BASE_URL ||
         "https://api.openai.com/v1"
       )
         .trim()
@@ -361,50 +362,45 @@ export const speakPouya = createServerFn({ method: "POST" })
 
       const model = process.env.OPENAI_TTS_MODEL || "tts-1";
       const voice = process.env.OPENAI_TTS_VOICE || "onyx";
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      let res: Response;
-      try {
-        res = await fetch(`${baseUrl}/audio/speech`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model,
-            voice,
-            input: text,
-            response_format: "mp3",
-          }),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => "");
-        logAi("tts_http", res.status, baseUrl, errBody.slice(0, 200));
-        if (baseUrl !== "https://api.openai.com/v1") {
-          try {
-            const res2 = await fetch("https://api.openai.com/v1/audio/speech", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${key}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ model, voice, input: text, response_format: "mp3" }),
-            });
-            if (res2.ok) {
-              const buf2 = Buffer.from(await res2.arrayBuffer());
-              return { ok: true as const, audio: buf2.toString("base64"), mime: "audio/mpeg" };
-            }
-            logAi("tts_openai_retry", res2.status);
-          } catch (e) {
-            logAi("tts_openai_retry_fail", e);
+
+      async function trySpeech(
+        base: string,
+        apiKey: string,
+      ): Promise<{ ok: true; audio: string; mime: string } | { ok: false; status: number }> {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        try {
+          const res = await fetch(`${base}/audio/speech`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model, voice, input: text, response_format: "mp3" }),
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const errBody = await res.text().catch(() => "");
+            logAi("tts_http", res.status, base, errBody.slice(0, 160));
+            return { ok: false, status: res.status };
           }
+          const buf = Buffer.from(await res.arrayBuffer());
+          return { ok: true, audio: buf.toString("base64"), mime: "audio/mpeg" };
+        } catch (e) {
+          logAi("tts_fetch_fail", base, e);
+          return { ok: false, status: 0 };
+        } finally {
+          clearTimeout(timeout);
         }
-        return { ok: false as const, error: `tts_${res.status}` };
       }
-      const buf = Buffer.from(await res.arrayBuffer());
-      return { ok: true as const, audio: buf.toString("base64"), mime: "audio/mpeg" };
+
+      const first = await trySpeech(baseUrl, key);
+      if (first.ok) return { ok: true as const, audio: first.audio, mime: first.mime };
+
+      const looksOpenAi = key.startsWith("sk-");
+      if (looksOpenAi && baseUrl !== "https://api.openai.com/v1") {
+        const second = await trySpeech("https://api.openai.com/v1", key);
+        if (second.ok) return { ok: true as const, audio: second.audio, mime: second.mime };
+      }
+
+      return { ok: false as const, error: `tts_${first.status || "fail"}` };
     } catch (e) {
       logAi("tts_fail", e);
       return { ok: false as const, error: "tts_fail" };
