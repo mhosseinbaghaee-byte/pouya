@@ -266,17 +266,14 @@ export const askPouya = createServerFn({ method: "POST" })
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
       const system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
 
-      // ۱) بانک فقط سلام خالص / تأیید کوتاه (نه سؤال واقعی)
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
-      // ۲) حافظه کوتاه — فقط اگر سؤال ارزش بانک دارد
       if (isBankWorthyQuestion(lastUser)) {
         const remembered = brainLookup(lastUser);
         if (remembered) return { ok: true, text: sanitizeStudentMath(remembered, level), provider: "bank" };
       }
 
-      // ۳) مدل واقعی (Gemini → لیارا/OpenAI) — مسیر اصلی
       let reply: string | null = null;
       let provider: ProviderId | undefined;
       for (const p of providerOrder()) {
@@ -297,7 +294,6 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // ۴) فقط اگر مدل در دسترس نبود → پاسخ محلی
       if (!reply) {
         reply = localTutorReply({ messages, mode, lang: data.lang });
         provider = "bank";
@@ -343,37 +339,25 @@ export const speakPouya = createServerFn({ method: "POST" })
       const text = data.text.replace(/[*_`#>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
       if (!text) return { ok: false as const, error: "empty" };
 
-      // TTS must NOT reuse Liara chat base URL — most OpenAI-compatible proxies
-      // only implement /chat/completions and return 404 for /audio/speech.
-      const dedicatedTtsKey =
+      // فقط کلید اختصاصی TTS — هرگز OPENAI_API_KEY لیارا را برای /audio/speech نفرست
+      const key = (
         process.env.LIARA_TTS_API_KEY ||
         process.env.OPENAI_TTS_KEY ||
-        "";
-      const chatKey = process.env.LIARA_API_KEY || process.env.OPENAI_API_KEY || "";
-      const key = dedicatedTtsKey || chatKey;
-      if (!key) return { ok: false as const, error: "no_tts_key" };
+        ""
+      ).trim();
+      if (!key) {
+        logAi("tts_skip", "no OPENAI_TTS_KEY / LIARA_TTS_API_KEY");
+        return { ok: false as const, error: "no_tts_key" };
+      }
 
-      const dedicatedTtsBase = (
+      const baseUrl = (
         process.env.LIARA_TTS_BASE_URL ||
         process.env.OPENAI_TTS_BASE_URL ||
-        ""
+        "https://api.openai.com/v1"
       )
         .trim()
         .replace(/\/+$/, "")
         .replace(/\/audio\/speech$/, "");
-
-      // Prefer dedicated TTS base; else official OpenAI when using OPENAI_TTS_KEY.
-      const baseUrl =
-        dedicatedTtsBase ||
-        (dedicatedTtsKey ? "https://api.openai.com/v1" : "") ||
-        (
-          process.env.LIARA_BASE_URL ||
-          process.env.OPENAI_BASE_URL ||
-          "https://api.openai.com/v1"
-        )
-          .trim()
-          .replace(/\/+$/, "")
-          .replace(/\/audio\/speech$/, "");
 
       const model = process.env.OPENAI_TTS_MODEL || "tts-1";
       const voice = process.env.OPENAI_TTS_VOICE || "onyx";
@@ -398,12 +382,12 @@ export const speakPouya = createServerFn({ method: "POST" })
       if (!res.ok) {
         const errBody = await res.text().catch(() => "");
         logAi("tts_http", res.status, baseUrl, errBody.slice(0, 200));
-        if (baseUrl !== "https://api.openai.com/v1" && dedicatedTtsKey) {
+        if (baseUrl !== "https://api.openai.com/v1") {
           try {
             const res2 = await fetch("https://api.openai.com/v1/audio/speech", {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${dedicatedTtsKey}`,
+                Authorization: `Bearer ${key}`,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({ model, voice, input: text, response_format: "mp3" }),
