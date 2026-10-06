@@ -36,6 +36,8 @@ function cacheKey(question: string, level?: string, assistantId?: string): strin
 export function isBankWorthyQuestion(q: string): boolean {
   const t = q.trim();
   if (t.length < 4 || t.length > 100) return false;
+  // دانستنی/موضوع تصادفی نباید کش شود — هر بار تازه از مدل
+  if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر|موضوع آموزشی|کد:\s*\d+)/.test(t)) return false;
   if (/(کامل|مفصل|عمیق|مثال|چرا|چطور|چگونه|مقایسه|حل کن|محاسبه|ترجمه)/.test(t)) return false;
   if (/(من|اسمم|سلام\s+\S+\s+جان|ناراحتم|خوشحالم)/.test(t) && t.length < 30) return false;
   return true;
