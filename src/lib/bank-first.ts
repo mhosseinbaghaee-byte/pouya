@@ -23,7 +23,13 @@ export function bankReply(opts: {
 
   if (looksVisual(last)) return null;
 
-  if (last.includes("دانستی") || last.includes("غافلگیر")) return todayFact();
+  if (
+    last.includes("دانستی") ||
+    last.includes("غافلگیر") ||
+    last.includes("واقعیت علمی") ||
+    /دانستنی/.test(last)
+  )
+    return todayFact();
 
   const lower = last.toLowerCase();
   const isAck = ACK.some((a) => lower === a || lower === a + "?" || lower === a + "؟");
