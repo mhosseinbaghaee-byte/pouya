@@ -339,27 +339,8 @@ export const speakPouya = createServerFn({ method: "POST" })
       const text = data.text.replace(/[*_`#>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
       if (!text) return { ok: false as const, error: "empty" };
 
-      // همان زنجیره کلید قبلی که کار می‌کرد
-      const key = (
-        process.env.LIARA_TTS_API_KEY ||
-        process.env.OPENAI_TTS_KEY ||
-        process.env.LIARA_API_KEY ||
-        process.env.OPENAI_API_KEY ||
-        ""
-      ).trim();
-      if (!key) return { ok: false as const, error: "no_tts_key" };
-
-      const baseUrl = (
-        process.env.LIARA_TTS_BASE_URL ||
-        process.env.OPENAI_TTS_BASE_URL ||
-        process.env.LIARA_BASE_URL ||
-        process.env.OPENAI_BASE_URL ||
-        "https://api.openai.com/v1"
-      )
-        .trim()
-        .replace(/\/+$/, "")
-        .replace(/\/audio\/speech$/, "");
-
+      const ttsKey = (process.env.OPENAI_TTS_KEY || process.env.LIARA_TTS_API_KEY || "").trim();
+      const chatKey = (process.env.OPENAI_API_KEY || process.env.LIARA_API_KEY || "").trim();
       const model = process.env.OPENAI_TTS_MODEL || "tts-1";
       const voice = process.env.OPENAI_TTS_VOICE || "onyx";
 
@@ -367,6 +348,7 @@ export const speakPouya = createServerFn({ method: "POST" })
         base: string,
         apiKey: string,
       ): Promise<{ ok: true; audio: string; mime: string } | { ok: false; status: number }> {
+        if (!apiKey || !base) return { ok: false, status: 0 };
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
         try {
@@ -391,16 +373,41 @@ export const speakPouya = createServerFn({ method: "POST" })
         }
       }
 
-      const first = await trySpeech(baseUrl, key);
-      if (first.ok) return { ok: true as const, audio: first.audio, mime: first.mime };
+      const chatBase = (
+        process.env.LIARA_TTS_BASE_URL ||
+        process.env.OPENAI_TTS_BASE_URL ||
+        process.env.LIARA_BASE_URL ||
+        process.env.OPENAI_BASE_URL ||
+        ""
+      )
+        .trim()
+        .replace(/\/+$/, "")
+        .replace(/\/audio\/speech$/, "");
 
-      const looksOpenAi = key.startsWith("sk-");
-      if (looksOpenAi && baseUrl !== "https://api.openai.com/v1") {
-        const second = await trySpeech("https://api.openai.com/v1", key);
-        if (second.ok) return { ok: true as const, audio: second.audio, mime: second.mime };
+      // 1) کلید TTS جدا → اول OpenAI رسمی
+      if (ttsKey) {
+        const a = await trySpeech("https://api.openai.com/v1", ttsKey);
+        if (a.ok) return { ok: true as const, audio: a.audio, mime: a.mime };
+        if (chatBase && chatBase !== "https://api.openai.com/v1") {
+          const b = await trySpeech(chatBase, ttsKey);
+          if (b.ok) return { ok: true as const, audio: b.audio, mime: b.mime };
+        }
       }
 
-      return { ok: false as const, error: `tts_${first.status || "fail"}` };
+      // 2) کلید چت روی base خودش
+      if (chatKey && chatBase) {
+        const c = await trySpeech(chatBase, chatKey);
+        if (c.ok) return { ok: true as const, audio: c.audio, mime: c.mime };
+      }
+
+      // 3) کلید چت شبیه OpenAI
+      if (chatKey && chatKey.startsWith("sk-")) {
+        const d = await trySpeech("https://api.openai.com/v1", chatKey);
+        if (d.ok) return { ok: true as const, audio: d.audio, mime: d.mime };
+      }
+
+      logAi("tts_all_failed", { hasTtsKey: !!ttsKey, hasChatKey: !!chatKey, chatBase });
+      return { ok: false as const, error: "tts_unavailable" };
     } catch (e) {
       logAi("tts_fail", e);
       return { ok: false as const, error: "tts_fail" };
