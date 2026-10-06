@@ -50,15 +50,8 @@ export function localTutorReply(opts: {
   if (opts.mode === "live" || opts.mode === "language") {
     return localLanguage(opts.lang || "fa", last, opts.messages.length);
   }
-  if (
-    last.includes("دانستی") ||
-    last.includes("غافلگیر") ||
-    last.includes("واقعیت علمی") ||
-    /دانستنی/.test(last)
-  )
-    return todayFact();
 
-  // سؤالات درباره خود پویا / مدل — نباید برود سراغ درس کوتاه
+  // سؤالات درباره خود پویا / مدل
   const metaHints = [
     "مدل",
     "هوش مصنوعی",
@@ -89,7 +82,6 @@ export function localTutorReply(opts: {
   const ack = ["خوبی", "خوبی؟", "چطوری", "چطوری؟", "چه خبر", "چه خبر؟", "مرسی", "ممنون", "باشه", "اوکی", "ok", "okay", "آره", "بله", "نه"];
   const isAck = ack.some((a) => lastLower === a || lastLower === a + "?" || lastLower === a + "؟");
 
-  // فقط سلام خالص — «سلام کوه چیه» نباید منو بدهد
   if (isPureGreeting(last)) {
     if (userTurns.length <= 1) {
       return `سلام! من پویام. هر سؤالی داری مستقیم بپرس — مثلاً «کوه چیست؟» یا «گرانش یعنی چه؟»`;
@@ -101,6 +93,7 @@ export function localTutorReply(opts: {
     return `خوبم، ممنون. آماده‌ام.\n\nسؤالت را مستقیم بنویس — مثلاً «چرخ چیست؟» یا «گرانش یعنی چه؟»`;
   }
 
+  // فقط وقتی مدل قطع است — پشتیبانی بانکی
   const lesson = matchLesson(last);
   if (lesson) {
     const replyText = `${lesson.title}\n\n${lesson.body}`;
@@ -115,12 +108,15 @@ export function localTutorReply(opts: {
     return `${pick.title}\n\n${pick.body}`;
   }
 
-  // پاسخ عمومی: فقط وقتی مدل در دسترس نیست
+  if (last.includes("دانستی") || last.includes("واقعیت علمی") || /دانستنی/.test(last)) {
+    return todayFact();
+  }
+
   if (last.length >= 2) {
     return (
       `سؤالت را گرفتم: «${last.slice(0, 120)}».\n\n` +
       `الان اتصال مدل کامل در دسترس نیست؛ با دانش آماده‌ام جواب می‌دهم.\n` +
-      `اگر منظورت تعریف یا توضیح همان موضوع است، یک‌بار دیگر با جمله کامل بپرس — مثلاً «چرخ چیست و چه کاربردی دارد؟» تا دقیق‌تر جواب بدهم.`
+      `اگر منظورت تعریف یا توضیح همان موضوع است، یک‌بار دیگر با جمله کامل بپرس.`
     );
   }
 
