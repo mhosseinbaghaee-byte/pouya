@@ -50,7 +50,13 @@ export function localTutorReply(opts: {
   if (opts.mode === "live" || opts.mode === "language") {
     return localLanguage(opts.lang || "fa", last, opts.messages.length);
   }
-  if (last.includes("دانستی") || last.includes("غافلگیر")) return todayFact();
+  if (
+    last.includes("دانستی") ||
+    last.includes("غافلگیر") ||
+    last.includes("واقعیت علمی") ||
+    /دانستنی/.test(last)
+  )
+    return todayFact();
 
   // سؤالات درباره خود پویا / مدل — نباید برود سراغ درس کوتاه
   const metaHints = [
