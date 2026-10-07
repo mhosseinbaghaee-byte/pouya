@@ -190,22 +190,10 @@ export function PouyaMainApp() {
         setMood("talk");
         if (voiceCallRef.current) setVoicePhase("talk");
         await new Promise<void>((resolve) => {
-          audio.onended = () => {
-            finish();
-            resolve();
-          };
-          audio.onerror = () => {
-            finish();
-            resolve();
-          };
-          audio.onpause = () => {
-            finish();
-            resolve();
-          };
-          void audio.play().catch(() => {
-            finish();
-            resolve();
-          });
+          audio.onended = () => { finish(); resolve(); };
+          audio.onerror = () => { finish(); resolve(); };
+          audio.onpause = () => { finish(); resolve(); };
+          void audio.play().catch(() => { finish(); resolve(); });
         });
         return;
       }
@@ -213,10 +201,7 @@ export function PouyaMainApp() {
       voiceActiveRef.current = false;
     }
     try {
-      if (!window.speechSynthesis) {
-        finish();
-        return;
-      }
+      if (!window.speechSynthesis) { finish(); return; }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(spoken);
       u.lang = speakLang;
@@ -229,31 +214,18 @@ export function PouyaMainApp() {
           voices.find((v) => v.lang?.toLowerCase().startsWith(want.slice(0, 2))) ||
           voices.find((v) => /fa|per|iran/i.test(`${v.lang} ${v.name}`)) ||
           voices.find((v) => /ar[-_]?/i.test(v.lang || ""));
-        if (pick) {
-          u.voice = pick;
-          u.lang = pick.lang || speakLang;
-        }
-      } catch {
-        /* ignore */
-      }
+        if (pick) { u.voice = pick; u.lang = pick.lang || speakLang; }
+      } catch { /* ignore */ }
       voiceActiveRef.current = true;
       setMood("talk");
       if (voiceCallRef.current) setVoicePhase("talk");
       await new Promise<void>((resolve) => {
-        u.onend = () => {
-          finish();
-          resolve();
-        };
-        u.onerror = () => {
-          finish();
-          resolve();
-        };
+        u.onend = () => { finish(); resolve(); };
+        u.onerror = () => { finish(); resolve(); };
         window.speechSynthesis.speak(u);
       });
       return;
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     finish();
   }
 
@@ -274,9 +246,7 @@ export function PouyaMainApp() {
         toast.error("سقف گفتگوی امروز این پلن تمام شده. از حساب، پلن بالاتر را فعال کن.");
         return;
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     const useLang = nextLang ?? lang;
     setMode(nextMode);
     if (nextLang) setLang(nextLang);
@@ -289,9 +259,7 @@ export function PouyaMainApp() {
         const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
         const decoded = new TextDecoder("utf-8").decode(bytes);
         if (decoded) content = `${content}\n\n--- ${attachment.name} ---\n${decoded.slice(0, 6000)}`;
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     }
     const userMsg: ChatMsg = {
       role: "user",
@@ -328,9 +296,7 @@ export function PouyaMainApp() {
       try {
         noteInteraction({ userText: content, kind: "ask" });
         incrementChatUsage();
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
       setTyped("");
       if (!voiceActiveRef.current) setMood("idle");
     } catch {
@@ -397,26 +363,15 @@ export function PouyaMainApp() {
   })();
 
   function stopMic() {
-    try {
-      recRef.current?.stop();
-    } catch {
-      /* ignore */
-    }
+    try { recRef.current?.stop(); } catch { /* ignore */ }
     recRef.current = null;
     setListening(false);
   }
 
   function toggleMic(forMode: ChatMode = mode) {
     const SR = getSpeechRecognition();
-    if (!SR) {
-      toast.error("برای میکروفون از Chrome یا Edge استفاده کن.");
-      return;
-    }
-    if (listening) {
-      stopMic();
-      setMood("idle");
-      return;
-    }
+    if (!SR) { toast.error("برای میکروفون از Chrome یا Edge استفاده کن."); return; }
+    if (listening) { stopMic(); setMood("idle"); return; }
     if (busy) return;
     const rec = new SR();
     rec.lang = forMode === "live" ? localeForLangCode(lang) : "fa-IR";
@@ -500,9 +455,7 @@ export function PouyaMainApp() {
         setVoicePhase("idle");
         return;
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     stopMic();
     setDraft("");
     const history: ChatMsg[] = [...messagesRef.current, { role: "user", content }];
@@ -530,9 +483,7 @@ export function PouyaMainApp() {
       try {
         noteInteraction({ userText: content, kind: "ask" });
         incrementChatUsage();
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
       setMood("talk");
       setVoicePhase("talk");
       await playVoice(withFig);
@@ -598,58 +549,68 @@ export function PouyaMainApp() {
       return;
     }
     saveNote({ folder, title: titleFromBody(last.content), body: last.content, source: "chat" });
-    toast.success("در Vault ذخیره شد.");
+    toast.success("در مغز دوم ذخیره شد.");
   }
 
   function openLivePractice() {
-    setTab("live");
     setMode("live");
+    setTab("live");
   }
 
+  const redShell = tab === "chat" || tab === "live";
+
   if (!hydrated) {
+    return <div className="min-h-dvh w-full bg-stage" aria-busy="true" />;
+  }
+
+  if (!introDone) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-zinc-950 text-zinc-400">
-        در حال آماده‌سازی…
-      </div>
+      <button
+        type="button"
+        className="relative flex min-h-dvh w-full flex-col items-center justify-end overflow-hidden bg-stage text-cream"
+        onClick={() => {
+          try { sessionStorage.setItem(INTRO_KEY, "1"); } catch { /* ignore */ }
+          setIntroDone(true);
+        }}
+      >
+        <PouyaStage mood="idle" caption="" immersive showCaption={false} />
+        <div className="relative z-10 flex w-full flex-col items-center gap-2 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-8">
+          <p className="font-display text-2xl font-medium tracking-tight">سلام، من پویا هستم</p>
+          <p className="text-sm text-cream/80">مربی زنده دانش و زبان</p>
+          <p className="mt-6 text-xs text-cream/60">برای ادامه لمس کن</p>
+        </div>
+      </button>
     );
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-white/5 bg-zinc-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-2">
-          <div className="flex items-center gap-2">
-            <PouyaStage mood={mood} size={40} />
-            <div>
-              <div className="text-sm font-semibold">پویا</div>
-              <div className="text-[11px] text-zinc-400">مربی هوشمند تو</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {LEVELS.map((lv) => (
-              <button
-                key={lv.id}
-                type="button"
-                onClick={() => setLevel(lv.id)}
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px]",
-                  level === lv.id ? "bg-emerald-500/20 text-emerald-300" : "text-zinc-400 hover:text-zinc-200",
-                )}
-              >
-                {lv.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-2 pb-2">
+    <div
+      className={cn(
+        "flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden text-fg",
+        redShell ? "bg-stage" : "bg-background",
+      )}
+      dir="rtl"
+    >
+      <header
+        className={cn(
+          "flex w-full shrink-0 flex-col gap-2 px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2 sm:px-4",
+          redShell
+            ? "border-b border-white/10 bg-stage-deep/30 backdrop-blur-md"
+            : "border-b border-border bg-card/80 backdrop-blur-md",
+        )}
+      >
+        <nav
+          className={cn("pouya-glass-nav w-full min-w-0", redShell && "pouya-glass-nav-on-red")}
+          aria-label="بخش‌ها"
+        >
           {(
             [
-              ["chat", "چت", MessageCircle],
-              ["live", "مکالمه", Languages],
-              ["coaches", "مربی‌ها", GraduationCap],
-              ["quiz", "کوییز", Brain],
-              ["vault", "Vault", Bookmark],
-              ["account", "حساب", BookOpen],
+              ["chat", "گفتگو", MessageCircle],
+              ["live", "زبان", Languages],
+              ["coaches", "مربی‌ها", BookOpen],
+              ["quiz", "آزمون", GraduationCap],
+              ["vault", "مغز دوم", Brain],
+              ["account", "حساب", Bookmark],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -657,11 +618,12 @@ export function PouyaMainApp() {
               type="button"
               onClick={() => setTab(id)}
               className={cn(
-                "flex items-center gap-1 rounded-full px-3 py-1.5 text-xs whitespace-nowrap",
-                tab === id ? "bg-white/10 text-white" : "text-zinc-400 hover:text-zinc-200",
+                "inline-flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] sm:flex-row sm:gap-1.5 sm:text-xs",
+                tab === id ? "bg-white/20 font-medium" : "opacity-80",
+                redShell ? "text-cream" : "text-fg",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-4 w-4" />
               {label}
             </button>
           ))}
@@ -682,7 +644,7 @@ export function PouyaMainApp() {
             setVoiceOn={setVoiceOn}
             listening={listening}
             scrollerRef={scrollerRef}
-            onSend={(t) => void send(t, "chat")}
+            onSend={(t, a) => void send(t, "chat", undefined, a)}
             onMic={() => toggleMic("chat")}
             onLivePractice={openLivePractice}
             onNew={newChat}
