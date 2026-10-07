@@ -266,13 +266,9 @@ export const askPouya = createServerFn({ method: "POST" })
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
       const system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
 
+      // فقط سلام/تأیید خیلی کوتاه از بانک؛ سؤال واقعی → اول مدل
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
-
-      if (isBankWorthyQuestion(lastUser)) {
-        const remembered = brainLookup(lastUser);
-        if (remembered) return { ok: true, text: sanitizeStudentMath(remembered, level), provider: "bank" };
-      }
 
       let reply: string | null = null;
       let provider: ProviderId | undefined;
@@ -294,7 +290,16 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
+      // اگر مدل جواب داد، کش قدیمی بانک را دور نزن
       if (!reply) {
+        logAi("ai_all_failed", { order: providerOrder(), last: lastUser.slice(0, 80) });
+        // کش مغز فقط به‌عنوان پشتیبان بعد از شکست مدل
+        if (isBankWorthyQuestion(lastUser)) {
+          const remembered = brainLookup(lastUser, level, data.assistantId);
+          if (remembered?.a) {
+            return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
+          }
+        }
         reply = localTutorReply({ messages, mode, lang: data.lang });
         provider = "bank";
       }
@@ -309,7 +314,7 @@ export const askPouya = createServerFn({ method: "POST" })
 
       if (isBankWorthyQuestion(lastUser) && provider && provider !== "bank") {
         try {
-          brainRemember(lastUser, text);
+          brainRemember(lastUser, text, { level, assistantId: data.assistantId });
         } catch {
           /* ignore */
         }
