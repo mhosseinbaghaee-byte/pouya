@@ -76,7 +76,7 @@ const DEFAULT_PROFILE: UserProfile = {
   level: "teen",
   goals: [],
   preferredAssistantId: "",
-  voiceOn: true,
+  voiceOn: false,
   dailyReminder: false,
   updatedAt: new Date(0).toISOString(),
 };
