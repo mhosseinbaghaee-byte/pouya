@@ -110,7 +110,20 @@ export function PouyaMainApp() {
   const voiceOnRef = useRef(true);
 
   useEffect(() => {
-    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
+    const el = scrollerRef.current;
+    if (!el) return;
+    const stick = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+    stick();
+    const t0 = window.requestAnimationFrame(stick);
+    const t1 = window.setTimeout(stick, 80);
+    const t2 = window.setTimeout(stick, 250);
+    return () => {
+      window.cancelAnimationFrame(t0);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [messages, typed, busy, tab]);
   useEffect(() => {
     messagesRef.current = messages;
@@ -570,111 +583,46 @@ export function PouyaMainApp() {
     setCallMuted(next);
     if (next) {
       stopMic();
-      audioRef.current?.pause();
-      window.speechSynthesis?.cancel();
       setVoicePhase("idle");
-    } else startCallListen();
+    } else {
+      startCallListen();
+    }
   }
 
   function saveLast(folder: FolderId = "knowledge") {
-    const last = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!last) {
-      toast.error("هنوز پاسخی برای ذخیره نیست.");
+    const lastA = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastA?.content) {
+      toast.error("هنوز جوابی برای ذخیره نیست.");
       return;
     }
-    saveNote({ folder, title: titleFromBody(last.content), body: last.content, source: "chat" });
-    toast.success("در مغز دوم ذخیره شد.");
+    try {
+      saveNote({ title: titleFromBody(lastA.content), body: lastA.content, folder });
+      toast.success("ذخیره شد.");
+    } catch {
+      toast.error("ذخیره نشد.");
+    }
   }
 
   function openLivePractice() {
-    setMode("live");
     setTab("live");
+    setMode("live");
   }
-
-  const redShell = tab === "chat" || tab === "live";
 
   if (!hydrated) {
-    return <div className="min-h-dvh w-full bg-stage" aria-busy="true" />;
-  }
-
-  if (!introDone) {
-    return (
-      <button
-        type="button"
-        className="relative flex min-h-dvh w-full flex-col items-center justify-end overflow-hidden bg-stage text-cream"
-        onClick={() => {
-          try {
-            sessionStorage.setItem(INTRO_KEY, "1");
-          } catch {
-            /* ignore */
-          }
-          setIntroDone(true);
-        }}
-      >
-        <PouyaStage mood="idle" className="absolute inset-0" />
-        <div className="relative z-10 flex w-full flex-col items-center gap-2 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-8">
-          <p className="font-display text-2xl font-medium tracking-tight">سلام، من پویا هستم</p>
-          <p className="text-sm text-cream/80">مربی زنده دانش و زبان</p>
-          <p className="mt-6 text-xs text-cream/60">برای ادامه لمس کن</p>
-        </div>
-      </button>
-    );
+    return <div className="p-8 text-center text-sm text-muted-foreground">در حال آماده‌سازی…</div>;
   }
 
   return (
-    <div
-      className={cn(
-        "flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden text-fg",
-        redShell ? "bg-stage" : "bg-background",
-      )}
-      dir="rtl"
-    >
-      <header
-        className={cn(
-          "flex w-full shrink-0 flex-col gap-2 px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2 sm:px-4",
-          redShell
-            ? "border-b border-white/10 bg-stage-deep/30 backdrop-blur-md"
-            : "border-b border-border bg-card/80 backdrop-blur-md",
-        )}
-      >
-        <nav
-          className={cn("pouya-glass-nav w-full min-w-0", redShell && "pouya-glass-nav-on-red")}
-          aria-label="بخش‌ها"
-        >
-          {(
-            [
-              ["chat", "گفتگو", MessageCircle],
-              ["live", "زبان", Languages],
-              ["coaches", "مربی‌ها", BookOpen],
-              ["quiz", "آزمون", GraduationCap],
-              ["vault", "مغز دوم", Brain],
-              ["account", "حساب", Bookmark],
-            ] as const
-          ).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                if (id !== "chat") {
-                  audioRef.current?.pause();
-                  window.speechSynthesis?.cancel();
-                  voiceActiveRef.current = false;
-                }
-                setTab(id);
-                if (id === "live") setMode("live");
-                else if (id === "chat") setMode("chat");
-              }}
-              className={cn("pouya-glass-tab", tab === id && "pouya-glass-tab-active")}
-              aria-current={tab === id ? "page" : undefined}
-              aria-label={label}
-            >
-              <Icon className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="truncate">{label}</span>
-            </button>
-          ))}
-        </nav>
-      </header>
-
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col gap-2 px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <PouyaStage mood={mood} />
+          <div>
+            <div className="text-sm font-semibold">پویا</div>
+            <div className="text-xs text-muted-foreground">مربی آموزشی</div>
+          </div>
+        </div>
+      </div>
       <main className="flex min-h-0 flex-1 flex-col">
         {tab === "chat" ? (
           <ChatPane
@@ -730,39 +678,29 @@ export function PouyaMainApp() {
             onVoiceCall={() => void openVoiceCall()}
           />
         ) : null}
+        {tab === "quiz" ? <QuizPane level={level} setMood={setMood} /> : null}
+        {tab === "vault" ? <VaultPane /> : null}
         {tab === "coaches" ? (
           <CoachesPane
             activeId={assistantId}
-            onSelect={(a) => setAssistantId(a.id)}
             onStart={(a) => {
               setAssistantId(a.id);
               setTab("chat");
-              setMode("chat");
-              void send(a.starter || `سلام، من می‌خواهم با مربی ${a.name} کار کنم.`, "chat");
             }}
             onAskLesson={(prompt) => {
               setTab("chat");
-              setMode("lesson");
               void send(prompt, "lesson");
             }}
           />
         ) : null}
-        {tab === "quiz" ? <QuizPane level={level} setMood={setMood} /> : null}
-        {tab === "vault" ? <VaultPane /> : null}
         {tab === "account" ? <AccountPane /> : null}
       </main>
-
       {voiceCall ? (
         <PouyaVoiceCall
           phase={voicePhase}
           muted={callMuted}
-          draft={draft}
-          setDraft={setDraft}
-          lastUser={[...messages].reverse().find((m) => m.role === "user")?.content}
-          lastAssistant={[...messages].reverse().find((m) => m.role === "assistant")?.content}
           onClose={closeVoiceCall}
           onToggleMute={toggleCallMute}
-          onSendText={(t) => void sendVoice(t)}
         />
       ) : null}
     </div>
