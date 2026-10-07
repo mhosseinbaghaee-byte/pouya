@@ -5,7 +5,7 @@ import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
 import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
 import { bankReply } from "./bank-first";
-import { brainLookup, brainRemember, isBankWorthyQuestion } from "./pouya-brain";
+import { brainLookup, brainRemember, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
   findWikiImage,
   looksVisual,
@@ -183,7 +183,7 @@ function systemPrompt(
     `تو «پویا» هستی: مربی زنده آموزش برای دانش‌آموزان ایران.\n` +
     `قوانین:\n` +
     `- ${levelLine(level)}\n` +
-    `- مغز اصلی تو هوش مصنوعی است: هر سؤال واقعی را خودت تحلیل کن و جواب هوشمند بده.\n` +
+    `- مغز اصلی تو هوش مصنوعی است: هر سؤال را تحلیل کن و جواب هوشمند بده.\n` +
     `- مستقیم و طبیعی به همان سؤال جواب بده؛ مثل یک معلم باهوش، نه منوی دکمه.\n` +
     `- از لیست‌های کلیشه‌ای و خوش‌آمد اضافی پرهیز کن مگر کاربر فقط سلام کرده باشد.\n` +
     `- مثل ربات کلمات کلیدی نباش.\n` +
@@ -334,10 +334,21 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // بانک = فقط سلام/تأیید خیلی کوتاه (جواب سریع). سؤال واقعی هرگز اینجا نمی‌آید.
+      // ۱) سلام/تأیید کوتاه → بانک سریع
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
+      const lessonQ = isLessonQuestion(lastUser, mode);
+
+      // ۲) سؤال درسی → اول بانک (مغز) برای جواب سریع
+      if (lessonQ) {
+        const remembered = brainLookup(lastUser, level, data.assistantId);
+        if (remembered?.a) {
+          return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
+        }
+      }
+
+      // ۳) مسیر اصلی: هوش مصنوعی فکر می‌کند و جواب می‌دهد
       let reply: string | null = null;
       let provider: ProviderId | undefined;
       for (const p of providerOrder()) {
@@ -358,14 +369,12 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // بانک/مغز = فقط وقتی هوش مصنوعی قطع است
+      // ۴) AI قطع بود → بانک/محلی به‌عنوان پشتیبان
       if (!reply) {
         logAi("ai_all_failed", { order: providerOrder(), last: lastUser.slice(0, 80) });
-        if (isBankWorthyQuestion(lastUser)) {
-          const remembered = brainLookup(lastUser, level, data.assistantId);
-          if (remembered?.a) {
-            return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
-          }
+        const remembered = brainLookup(lastUser, level, data.assistantId);
+        if (remembered?.a) {
+          return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
         }
         reply = localTutorReply({ messages, mode, lang: data.lang });
         provider = "bank";
@@ -379,7 +388,8 @@ export const askPouya = createServerFn({ method: "POST" })
       }
       text = stripForeignImages(text);
 
-      if (isBankWorthyQuestion(lastUser) && provider && provider !== "bank") {
+      // ۵) جواب درسی موفق از AI → بانک را به‌روز کن تا دفعه بعد سریع‌تر باشد
+      if (lessonQ && provider && provider !== "bank") {
         try {
           brainRemember(lastUser, text, { level, assistantId: data.assistantId });
         } catch {
