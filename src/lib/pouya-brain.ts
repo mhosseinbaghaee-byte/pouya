@@ -35,12 +35,29 @@ function cacheKey(question: string, level?: string, assistantId?: string): strin
 
 export function isBankWorthyQuestion(q: string): boolean {
   const t = q.trim();
-  if (t.length < 4 || t.length > 100) return false;
-  // دانستنی/موضوع تصادفی نباید کش شود — هر بار تازه از مدل
-  if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر|موضوع آموزشی|کد:\s*\d+)/.test(t)) return false;
-  if (/(کامل|مفصل|عمیق|مثال|چرا|چطور|چگونه|مقایسه|حل کن|محاسبه|ترجمه)/.test(t)) return false;
-  if (/(من|اسمم|سلام\s+\S+\s+جان|ناراحتم|خوشحالم)/.test(t) && t.length < 30) return false;
+  if (t.length < 4 || t.length > 180) return false;
+  // دانستنی/موضوع تصادفی — هر بار تازه
+  if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر|موضوع آموزشی روزانه|کد:\s*\d+)/.test(t)) return false;
+  // شخصی / احساسی کوتاه کش نشود
+  if (/(اسمم|ناراحتم|خوشحالم|دوست دارم|دوست ندارم)/.test(t) && t.length < 40) return false;
+  // قیمت لحظه‌ای ارز/طلا کش نشود
+  if (/(قیمت|نرخ).*(دلار|یورو|طلا|سکه)|دلار\s*چند|یورو\s*چند/.test(t)) return false;
   return true;
+}
+
+/** سؤال درسی/آموزشی — بانک سریع اول، بعد AI و به‌روزرسانی بانک */
+export function isLessonQuestion(q: string, mode?: string): boolean {
+  if (mode === "lesson" || mode === "daily") return true;
+  const t = q.trim();
+  if (!t) return false;
+  if (/(قیمت|نرخ|دلار|یورو|طلا|سکه|تتر|خبر|هوا|ساعت|تاریخ امروز)/.test(t) && !/(معادله|فرمول|درس|ریاضی)/.test(t)) {
+    return false;
+  }
+  return (
+    /(درس|مبحث|فصل|کتاب|ریاضی|فیزیک|شیمی|زیست|عربی|فارسی|انگلیسی|تاریخ|جغرافیا|دینی|کنکور|معادله|فرمول|قضیه|تعریف|حل کن|محاسبه|تمرین|ساده کن|اثبات|چرا|چطور|چگونه|توضیح|یاد بده|آموزش|نمونه سوال)/.test(
+      t,
+    ) || (t.length >= 20 && !/(سلام|خوبی|چه خبر|مرسی|ممنون)/.test(t))
+  );
 }
 
 function looksPersonalized(answer: string): boolean {
