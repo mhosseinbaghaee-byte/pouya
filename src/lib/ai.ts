@@ -60,6 +60,65 @@ function geminiModels(): string[] {
 function logAi(...args: unknown[]) {
   console.error("[pouya-ai]", ...args);
 }
+
+/** سؤال‌های قیمت لحظه‌ای بازار ایران — فقط برای غنی‌سازی پرامپت AI، نه جواب از پیش */
+function wantsLiveMarket(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  return /قیمت|نرخ|چند\s*ه|چنده|چنداست|چند\s*تومن|چند\s*تومان|چند\s*ریال|دلار|یورو|پوند|درهم|تتر|طلا|سکه|انس|bitcoin|btc|usdt|usd|eur|gbp/i.test(
+    t,
+  );
+}
+
+type MarketSnap = { line: string; asOf?: string };
+
+async function fetchIranMarketSnap(): Promise<MarketSnap | null> {
+  const url =
+    "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4500);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json", "User-Agent": "pouya-tutor/1" },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      updated_at?: string;
+      data?: Array<{ symbol?: string; price?: number | string; unit?: string; name?: string }>;
+    };
+    const rows = Array.isArray(json.data) ? json.data : [];
+    const by = (sym: string) => rows.find((r) => (r.symbol || "").toUpperCase() === sym);
+    const fmt = (n: number | string | undefined) => {
+      const v = typeof n === "string" ? Number(n.replace(/,/g, "")) : Number(n);
+      if (!Number.isFinite(v)) return null;
+      return Math.round(v).toLocaleString("fa-IR");
+    };
+    const parts: string[] = [];
+    const usd = by("USD_IRR_FREE");
+    const eur = by("EUR_IRR_FREE");
+    const gold = by("GOLD_18K_IRR");
+    const coin = by("COIN_EMAMI_IRR");
+    const usdt = by("USDT_IRR");
+    if (usd?.price != null) parts.push(`دلار آزاد ≈ ${fmt(usd.price)} تومان`);
+    if (eur?.price != null) parts.push(`یورو آزاد ≈ ${fmt(eur.price)} تومان`);
+    if (usdt?.price != null) parts.push(`تتر ≈ ${fmt(usdt.price)} تومان`);
+    if (gold?.price != null) parts.push(`طلای ۱۸ عیار ≈ ${fmt(gold.price)} تومان در هر گرم`);
+    if (coin?.price != null) parts.push(`سکه امامی ≈ ${fmt(coin.price)} تومان`);
+    if (!parts.length) return null;
+    const asOf = json.updated_at || "";
+    const line =
+      `داده زنده بازار آزاد ایران${asOf ? ` (به‌روزرسانی منبع: ${asOf})` : ""}:\n` +
+      parts.map((p) => `- ${p}`).join("\n") +
+      `\nاعداد تقریبی‌اند و ممکن است چند دقیقه تأخیر داشته باشند.`;
+    return { line, asOf };
+  } catch (e) {
+    logAi("market_fetch_fail", e);
+    return null;
+  }
+}
+
 const DEFAULT_ORDER: ProviderId[] = ["gemini", "openai"];
 const DIAGRAM_IDS = LESSON_DIAGRAMS.map((d) => d.id).join(", ");
 
@@ -124,9 +183,12 @@ function systemPrompt(
     `تو «پویا» هستی: مربی زنده آموزش برای دانش‌آموزان ایران.\n` +
     `قوانین:\n` +
     `- ${levelLine(level)}\n` +
+    `- مغز اصلی تو هوش مصنوعی است: هر سؤال واقعی را خودت تحلیل کن و جواب هوشمند بده.\n` +
     `- مستقیم و طبیعی به همان سؤال جواب بده؛ مثل یک معلم باهوش، نه منوی دکمه.\n` +
     `- از لیست‌های کلیشه‌ای و خوش‌آمد اضافی پرهیز کن مگر کاربر فقط سلام کرده باشد.\n` +
     `- مثل ربات کلمات کلیدی نباش.\n` +
+    `- هرگز برای سؤال‌های روزمره (قیمت، خبر، واقعیت) نگو «نمی‌توانم اطلاعات به‌روز بدهم». اگر داده زنده در پرامپت هست همان را بگو؛ اگر نیست با استدلال و دانش خودت کمک کن و محدودیت را کوتاه بگو.\n` +
+    `- اگر بلوک «داده زنده بازار» هست، برای دلار/یورو/طلا/سکه همان را مبنا بگذار.\n` +
     `- اگر کاربر عکس/شکل/نقشه خواست: هرگز نگو نمی‌توانی تصویر نشان دهی. سیستم خودش عکس می‌آورد. فقط توضیح کوتاه بده و در انتها [wiki:عبارت انگلیسی دقیق] مثل [wiki:Iran location map] بگذار. هرگز [تصویر] ننویس.\n` +
     `- ایمنی کودک: اگر کاربر از آسیب به خود، خودکشی، خشونت خانگی یا سوءاستفاده گفت، همدلی کوتاه کن، کمک گرفتن از بزرگ‌تر/اورژانس را پیشنهاد بده، راهنمایی آسیب‌زا نده. اطلاعات شخصی حساس را نخواه.\n` +
     `- فقط محتوای جنسی ممنوع است.\n` +
@@ -264,12 +326,21 @@ export const askPouya = createServerFn({ method: "POST" })
       const mode = data.mode as ChatMode;
       const messages = data.messages as ChatMsg[];
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
-      const system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
+      let system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
 
-      // فقط سلام/تأیید خیلی کوتاه از بانک؛ سؤال واقعی → اول مدل
+      // غنی‌سازی اختیاری برای قیمت — جواب را AI می‌سازد، نه بانک ثابت
+      if (wantsLiveMarket(lastUser)) {
+        const snap = await fetchIranMarketSnap();
+        if (snap?.line) {
+          system = `${system}\n\nداده زنده بازار (فقط کمک به تحلیل AI):\n${snap.line}`;
+        }
+      }
+
+      // بانک = فقط سلام/تأیید خیلی کوتاه برای جواب سریع؛ سؤال واقعی هرگز اینجا نمی‌آید
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
+      // مسیر اصلی: همیشه Gemini/OpenAI
       let reply: string | null = null;
       let provider: ProviderId | undefined;
       for (const p of providerOrder()) {
@@ -290,10 +361,9 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // اگر مدل جواب داد، کش قدیمی بانک را دور نزن
+      // بانک/مغز = فقط وقتی هوش مصنوعی قطع است
       if (!reply) {
         logAi("ai_all_failed", { order: providerOrder(), last: lastUser.slice(0, 80) });
-        // کش مغز فقط به‌عنوان پشتیبان بعد از شکست مدل
         if (isBankWorthyQuestion(lastUser)) {
           const remembered = brainLookup(lastUser, level, data.assistantId);
           if (remembered?.a) {
