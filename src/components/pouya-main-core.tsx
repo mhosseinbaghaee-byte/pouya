@@ -81,7 +81,7 @@ function spokenSlice(text: string) {
 export function PouyaMainApp() {
   const [tab, setTab] = useState<Tab>("chat");
   const [level, setLevel] = useState<Level>("teen");
-  const [voiceOn, setVoiceOn] = useState(true);
+  const [voiceOn, setVoiceOn] = useState(false);
   const [mood, setMood] = useState<StageMood>("idle");
   const [mode, setMode] = useState<ChatMode>("chat");
   const [lang, setLang] = useState<LangCode>("en");
@@ -107,10 +107,25 @@ export function PouyaMainApp() {
   const voiceCallRef = useRef(false);
   const callMutedRef = useRef(false);
   const busyRef = useRef(false);
-  const voiceOnRef = useRef(true);
+  const voiceOnRef = useRef(false);
 
   useEffect(() => {
-    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
+    const el = scrollerRef.current;
+    if (!el) return;
+    const stick = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+    stick();
+    const raf = requestAnimationFrame(stick);
+    const t1 = window.setTimeout(stick, 50);
+    const t2 = window.setTimeout(stick, 150);
+    const t3 = window.setTimeout(stick, 350);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
   }, [messages, typed, busy, tab]);
   useEffect(() => {
     messagesRef.current = messages;
@@ -120,7 +135,7 @@ export function PouyaMainApp() {
     try {
       const prof = loadProfile();
       if (prof.level === "kid" || prof.level === "teen" || prof.level === "adult") setLevel(prof.level);
-      setVoiceOn(prof.voiceOn !== false);
+      setVoiceOn(prof.voiceOn === true);
       if (prof.preferredAssistantId) setAssistantId(prof.preferredAssistantId);
     } catch {
       /* ignore */
@@ -570,112 +585,98 @@ export function PouyaMainApp() {
     setCallMuted(next);
     if (next) {
       stopMic();
-      audioRef.current?.pause();
-      window.speechSynthesis?.cancel();
       setVoicePhase("idle");
-    } else startCallListen();
+    } else if (voiceCallRef.current && !busyRef.current) {
+      startCallListen();
+    }
   }
 
-  function saveLast(folder: FolderId = "knowledge") {
+  function saveLast() {
     const last = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!last) {
-      toast.error("هنوز پاسخی برای ذخیره نیست.");
+    if (!last?.content) {
+      toast.error("پیامی برای ذخیره نیست.");
       return;
     }
-    saveNote({ folder, title: titleFromBody(last.content), body: last.content, source: "chat" });
-    toast.success("در مغز دوم ذخیره شد.");
+    try {
+      saveNote({
+        title: titleFromBody(last.content),
+        body: last.content,
+        folder: "lessons" as FolderId,
+      });
+      toast.success("در Vault ذخیره شد.");
+    } catch {
+      toast.error("ذخیره نشد.");
+    }
   }
 
   function openLivePractice() {
-    setMode("live");
     setTab("live");
+    setMode("live");
   }
-
-  const redShell = tab === "chat" || tab === "live";
 
   if (!hydrated) {
-    return <div className="min-h-dvh w-full bg-stage" aria-busy="true" />;
-  }
-
-  if (!introDone) {
     return (
-      <button
-        type="button"
-        className="relative flex min-h-dvh w-full flex-col items-center justify-end overflow-hidden bg-stage text-cream"
-        onClick={() => {
-          try {
-            sessionStorage.setItem(INTRO_KEY, "1");
-          } catch {
-            /* ignore */
-          }
-          setIntroDone(true);
-        }}
-      >
-        <PouyaStage mood="idle" className="absolute inset-0" />
-        <div className="relative z-10 flex w-full flex-col items-center gap-2 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-8">
-          <p className="font-display text-2xl font-medium tracking-tight">سلام، من پویا هستم</p>
-          <p className="text-sm text-cream/80">مربی زنده دانش و زبان</p>
-          <p className="mt-6 text-xs text-cream/60">برای ادامه لمس کن</p>
-        </div>
-      </button>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-zinc-950 text-zinc-400">
+        در حال آماده‌سازی…
+      </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden text-fg",
-        redShell ? "bg-stage" : "bg-background",
-      )}
-      dir="rtl"
-    >
-      <header
-        className={cn(
-          "flex w-full shrink-0 flex-col gap-2 px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2 sm:px-4",
-          redShell
-            ? "border-b border-white/10 bg-stage-deep/30 backdrop-blur-md"
-            : "border-b border-border bg-card/80 backdrop-blur-md",
-        )}
-      >
-        <nav
-          className={cn("pouya-glass-nav w-full min-w-0", redShell && "pouya-glass-nav-on-red")}
-          aria-label="بخش‌ها"
-        >
+    <div className="flex min-h-[100dvh] flex-col bg-zinc-950 text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-white/5 bg-zinc-950/90 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <PouyaStage mood={mood} size={40} />
+            <div>
+              <div className="text-sm font-semibold">پویا</div>
+              <div className="text-[11px] text-zinc-400">مربی هوشمند تو</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {LEVELS.map((lv) => (
+              <button
+                key={lv.id}
+                type="button"
+                onClick={() => setLevel(lv.id)}
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px]",
+                  level === lv.id ? "bg-emerald-500/20 text-emerald-300" : "text-zinc-400 hover:text-zinc-200",
+                )}
+              >
+                {lv.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-2 pb-2">
           {(
             [
-              ["chat", "گفتگو", MessageCircle],
-              ["live", "زبان", Languages],
-              ["coaches", "مربی‌ها", BookOpen],
-              ["quiz", "آزمون", GraduationCap],
-              ["vault", "مغز دوم", Brain],
-              ["account", "حساب", Bookmark],
+              ["chat", "چت", MessageCircle],
+              ["live", "مکالمه", Languages],
+              ["coaches", "مربی‌ها", GraduationCap],
+              ["quiz", "کوییز", Brain],
+              ["vault", "Vault", Bookmark],
+              ["account", "حساب", BookOpen],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
               key={id}
               type="button"
-              onClick={() => {
-                if (id !== "chat") {
-                  audioRef.current?.pause();
-                  window.speechSynthesis?.cancel();
-                  voiceActiveRef.current = false;
-                }
-                setTab(id);
-                if (id === "live") setMode("live");
-                else if (id === "chat") setMode("chat");
-              }}
-              className={cn("pouya-glass-tab", tab === id && "pouya-glass-tab-active")}
-              aria-current={tab === id ? "page" : undefined}
-              aria-label={label}
+              onClick={() => setTab(id)}
+              className={cn(
+                "flex items-center gap-1 rounded-full px-3 py-1.5 text-xs whitespace-nowrap",
+                tab === id ? "bg-white/10 text-white" : "text-zinc-400 hover:text-zinc-200",
+              )}
             >
-              <Icon className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="truncate">{label}</span>
+              <Icon className="h-3.5 w-3.5" />
+              {label}
             </button>
           ))}
         </nav>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-2 pb-24 pt-2">
         {tab === "chat" ? (
           <ChatPane
             messages={messages}
@@ -687,13 +688,9 @@ export function PouyaMainApp() {
             setLevel={setLevel}
             voiceOn={voiceOn}
             setVoiceOn={setVoiceOn}
-            mode={mode}
             listening={listening}
             scrollerRef={scrollerRef}
-            onSend={(t, a) => void send(t, mode, undefined, a)}
-            onLesson={(t) => void send(t, "lesson")}
-            onDaily={() => void send("یک موضوع آموزشی روزانه به من بگو", "chat")}
-            onFact={() => void send("یک واقعیت علمی جالب بگو", "chat")}
+            onSend={(t) => void send(t, "chat")}
             onMic={() => toggleMic("chat")}
             onLivePractice={openLivePractice}
             onNew={newChat}
