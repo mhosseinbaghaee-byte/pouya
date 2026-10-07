@@ -642,9 +642,13 @@ export function PouyaMainApp() {
             setLevel={setLevel}
             voiceOn={voiceOn}
             setVoiceOn={setVoiceOn}
+            mode={mode}
             listening={listening}
             scrollerRef={scrollerRef}
-            onSend={(t, a) => void send(t, "chat", undefined, a)}
+            onSend={(t, a) => void send(t, mode, undefined, a)}
+            onLesson={(t) => void send(t, "lesson")}
+            onDaily={() => void send("یک موضوع آموزشی روزانه به من بگو", "chat")}
+            onFact={() => void send("یک واقعیت علمی جالب بگو", "chat")}
             onMic={() => toggleMic("chat")}
             onLivePractice={openLivePractice}
             onNew={newChat}
