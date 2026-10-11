@@ -50,6 +50,8 @@ export function isLessonQuestion(q: string, mode?: string): boolean {
   if (mode === "lesson" || mode === "daily") return true;
   const t = q.trim();
   if (!t) return false;
+  // دانستنی/قیمت لحظه‌ای → بانک درسی نه؛ مستقیم AI
+  if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر)/.test(t)) return false;
   if (/(قیمت|نرخ|دلار|یورو|طلا|سکه|تتر|خبر|هوا|ساعت|تاریخ امروز)/.test(t) && !/(معادله|فرمول|درس|ریاضی)/.test(t)) {
     return false;
   }

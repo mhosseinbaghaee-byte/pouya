@@ -61,6 +61,10 @@ function logAi(...args: unknown[]) {
   console.error("[pouya-ai]", ...args);
 }
 
+function isFactRequest(text: string): boolean {
+  return /(دانستی|دانستنی|واقعیت علمی|یک موضوع آموزشی روزانه)/.test(text.trim());
+}
+
 /** تشخیص سؤال قیمت لحظه‌ای ارز/طلای بازار ایران */
 function wantsLiveMarket(text: string): boolean {
   const t = text.trim();
@@ -338,9 +342,10 @@ export const askPouya = createServerFn({ method: "POST" })
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
-      const lessonQ = isLessonQuestion(lastUser, mode);
+      const factQ = isFactRequest(lastUser);
+      const lessonQ = !factQ && isLessonQuestion(lastUser, mode);
 
-      // ۲) سؤال درسی → اول بانک (مغز) برای جواب سریع
+      // ۲) سؤال درسی (نه دانستنی) → اول بانک برای جواب سریع
       if (lessonQ) {
         const remembered = brainLookup(lastUser, level, data.assistantId);
         if (remembered?.a) {
@@ -348,7 +353,7 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // ۳) مسیر اصلی: هوش مصنوعی فکر می‌کند و جواب می‌دهد
+      // ۳) مسیر اصلی: هوش مصنوعی
       let reply: string | null = null;
       let provider: ProviderId | undefined;
       for (const p of providerOrder()) {
@@ -369,15 +374,25 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // ۴) AI قطع بود → بانک/محلی به‌عنوان پشتیبان
+      // ۴) AI قطع بود → پشتیبان
       if (!reply) {
-        logAi("ai_all_failed", { order: providerOrder(), last: lastUser.slice(0, 80) });
-        const remembered = brainLookup(lastUser, level, data.assistantId);
-        if (remembered?.a) {
-          return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
+        logAi("ai_all_failed", {
+          order: providerOrder(),
+          hasGemini: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+          hasOpenAI: !!(process.env.OPENAI_API_KEY || process.env.LIARA_API_KEY),
+          last: lastUser.slice(0, 80),
+        });
+        if (factQ) {
+          reply = todayFact();
+          provider = "bank";
+        } else {
+          const remembered = brainLookup(lastUser, level, data.assistantId);
+          if (remembered?.a) {
+            return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
+          }
+          reply = localTutorReply({ messages, mode, lang: data.lang });
+          provider = "bank";
         }
-        reply = localTutorReply({ messages, mode, lang: data.lang });
-        provider = "bank";
       }
 
       let text = sanitizeStudentMath(reply, level);
@@ -388,7 +403,6 @@ export const askPouya = createServerFn({ method: "POST" })
       }
       text = stripForeignImages(text);
 
-      // ۵) جواب درسی موفق از AI → بانک را به‌روز کن تا دفعه بعد سریع‌تر باشد
       if (lessonQ && provider && provider !== "bank") {
         try {
           brainRemember(lastUser, text, { level, assistantId: data.assistantId });

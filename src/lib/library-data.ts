@@ -188,23 +188,29 @@ export const LOCAL_QUIZZES: Record<string, QuizPayload> = {
       { q: "برای انتخاب رشته کنکور چه چیزی مهم است؟", options: ["فقط رتبه", "علاقه و رتبه و بازار کار", "فقط علاقه", "فقط نظر خانواده"], correct: 1, why: "ترکیب علاقه، رتبه و آینده شغلی." },
     ],
   },
-  "اطلاعات عمومی": {
-    topic: "اطلاعات عمومی",
-    questions: [
-      { q: "بزرگ‌ترین پهنهٔ آبی محصور جهان کدام است؟", options: ["دریاچه ویکتوریا", "دریای خزر", "دریاچه بایکال", "دریای مرده"], correct: 1, why: "خزر به اقیانوس وصل نیست؛ بزرگ‌ترین دریاچه جهان است." },
-      { q: "نوروز با کدام پدیدهٔ نجومی هم‌زمان است؟", options: ["انقلاب تابستانی", "اعتدال بهاری", "ماه گرفتگی", "حضیض"], correct: 1, why: "تحویل سال لحظه اعتدال بهاری است." },
-      { q: "مرجع رسمی ثبت‌نام کنکور سراسری کدام است؟", options: ["آموزش و پرورش", "sanjesh.org", "وزارت علوم فقط", "دانشگاه تهران"], correct: 1, why: "سازمان سنجش آموزش کشور." },
-      { q: "پایگاه رسمی عناوین کتاب‌های درسی کدام است؟", options: ["chap.sch.ir", "google.com", "wikipedia.org", "sanjesh.org"], correct: 0, why: "اداره کل نظارت بر نشر و توزیع مواد آموزشی." },
-      { q: "نظام رسمی تحصیلی عمومی ایران چند سال است؟", options: ["۱۰", "۱۱", "۱۲", "۱۴"], correct: 2, why: "۶ سال ابتدایی + ۶ سال متوسطه (۳+۳)." },
-    ],
-  },
 };
 
 export const FACTS = [
-  "طبق ساختار رسمی، دوره عمومی ایران ۱۲ سال است: ۶ ابتدایی و ۶ متوسطه.",
-  "عناوین کتاب‌های درسی را می‌توان از chap.sch.ir دید.",
-  "اطلاعیه‌های کنکور سراسری از درگاه sanjesh.org منتشر می‌شود.",
-  "در سال‌های اخیر سهم سوابق تحصیلی (امتحان نهایی) در نتیجه کل پررنگ شده است.",
+  "قلب انسان حدود ۱۰۰ هزار بار در روز می‌تپد و در یک عمر متوسط بیش از ۲٫۵ میلیارد ضربان دارد.",
+  "نور خورشید حدود ۸ دقیقه و ۲۰ ثانیه طول می‌کشد تا به زمین برسد.",
+  "پوست بزرگ‌ترین عضو بدن از نظر سطح است و حدود ۲ متر مربع مساحت دارد.",
+  "عسل تقریباً فاسد نمی‌شود؛ در مقبره‌های مصر باستان عسل خوراکی پیدا شده است.",
+  "اختاپوس سه قلب دارد و خونش آبی‌رنگ است چون هموسیانین دارد نه هموگلوبین.",
+  "کوه اورست هر سال چند میلی‌متر بلندتر می‌شود چون صفحات پوسته هنوز حرکت می‌کنند.",
+  "مغز انسان حدود ۲۰٪ انرژی بدن را مصرف می‌کند، در حالی که فقط حدود ۲٪ وزن بدن است.",
+  "دوره عمومی ایران ۱۲ سال است: ۶ سال ابتدایی و ۶ سال متوسطه.",
+  "کتاب‌های درسی رسمی را می‌توان از سامانه chap.sch.ir دید.",
+  "اطلاعیه‌های کنکور معمولاً از درگاه sanjesh.org منتشر می‌شود.",
+  "الماس و گرافیت هر دو از کربن‌اند؛ فقط آرایش اتم‌ها فرق دارد.",
+  "صدای رعد بعد از دیدن برق می‌آید چون نور خیلی سریع‌تر از صوت حرکت می‌کند.",
+  "کوالا تقریباً ۲۰ ساعت در شبانه‌روز می‌خوابد.",
+  "اقیانوس آرام بزرگ‌ترین اقیانوس زمین است و بیش از نیمی از آب‌های آزاد را دارد.",
+  "چشم انسان می‌تواند حدود ۱۰ میلیون رنگ مختلف را تشخیص دهد.",
+  "آب تنها ماده‌ای است که در طبیعت به‌صورت جامد، مایع و گاز رایج است.",
+  "کهکشان راه شیری صدها میلیارد ستاره دارد.",
+  "استخوان ران محکم‌ترین استخوان بدن انسان است.",
+  "در فضا هوا نیست که صوت معمولی مثل روی زمین منتقل شود.",
+  "زبان فارسی از خانواده زبان‌های ایرانی است و با زبان‌هایی مثل کردی و پشتو خویشاوندی دارد.",
 ];
 
 const LANG_OPENERS: Record<string, string> = {
@@ -255,9 +261,10 @@ export function lessonByTopicLabel(label: string): Lesson | null {
   return LESSONS.find((l) => l.id === id) ?? null;
 }
 
+/** هر بار یک دانستنی تصادفی؛ نه یک جمله ثابت برای کل روز */
 export function todayFact() {
-  const i = Math.floor(Date.now() / 86_400_000) % FACTS.length;
-  return `دانستی امروز\n\n${FACTS[i]}\n\nاگر خواستی، بگو عمیق‌ترش کنم.`;
+  const i = Math.floor(Math.random() * FACTS.length);
+  return `دانستی امروز\n\n${FACTS[i]}\n\nاگر خواستی، بگو عمیق‌ترش کنم یا یک دانستنی دیگر بخواه.`;
 }
 
 export function localQuiz(topic: string): QuizPayload {
@@ -279,26 +286,17 @@ export function localQuiz(topic: string): QuizPayload {
   for (const [re, key] of aliases) {
     if (re.test(t) && LOCAL_QUIZZES[key]) return LOCAL_QUIZZES[key];
   }
-  for (const key of Object.keys(LOCAL_QUIZZES)) {
-    if (key.includes(t) || t.includes(key)) return LOCAL_QUIZZES[key];
-  }
-  return LOCAL_QUIZZES["اطلاعات عمومی"];
+  return {
+    topic: t || "عمومی",
+    questions: LOCAL_QUIZZES["اطلاعات عمومی"]?.questions || LOCAL_QUIZZES["علوم"].questions,
+  };
 }
 
-export function localDaily(messages: { role: string; content: string }[]) {
-  const userTurns = messages.filter((m) => m.role === "user");
-  if (userTurns.length <= 1) {
-    return `بزن بریم مرور روزانه.\n\n1) امروز کدوم درس کتاب درسی یا کنکور را خواندی؟\n2) چه بخشی تمام شد؟\n3) کجا گیر کردی؟\n4) فردا اولویتت چیست؟`;
-  }
-  const answers = userTurns.slice(1).map((m) => m.content.trim()).filter(Boolean).join("\n\n");
-  return `از حرف‌هایت یک پیش‌نویس ساختم.\n\n## مطالعه امروز\n${answers || "—"}\n\nاگر بخشی کم است بگو تا کاملش کنیم.`;
+export function localDaily(): string {
+  return todayFact();
 }
 
-export function localLanguage(lang: string, last: string, turns: number) {
-  const opener = LANG_OPENERS[lang] ?? LANG_OPENERS.en;
-  if (turns <= 1) return opener;
-  if (lang === "fa") {
-    return `خوب گفتی. یک قدم جلوتر:\n\nجمله را کامل کن: «امروز می‌خواهم …… از کتاب درسی یاد بگیرم.»`;
-  }
-  return `${opener}\n\nYou said: «${last.slice(0, 180)}»\n\nKeep going in the same language.`;
+export function localLanguage(lang?: string): string {
+  const code = (lang || "fa").slice(0, 2);
+  return LANG_OPENERS[code] || LANG_OPENERS.fa;
 }
