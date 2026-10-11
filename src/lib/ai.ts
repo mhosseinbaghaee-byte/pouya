@@ -68,9 +68,14 @@ function isFactRequest(text: string): boolean {
 function wantsLiveMarket(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
-  return /قیمت|نرخ|چند\s*ه|چنده|چنداست|چند\s*تومن|چند\s*تومان|چند\s*ریال|دلار|یورو|پوند|درهم|تتر|طلا|سکه|انس|bitcoin|btc|usdt|usd|eur|gbp/i.test(
-    t,
-  );
+  if (/(قیمت|نرخ|چند\s*ه|چنده|چنداست|چند\s*تومن|چند\s*تومان|چند\s*ریال)/.test(t)) return true;
+  if (
+    /(دلار|یورو|پوند|لیر|ین|یوان|درهم|دینار|روبل|فرانک|تتر|بیت\s*کوین|طلا|سکه|انس|usd|eur|gbp|try|jpy|cny|aed|btc|usdt)/i.test(
+      t,
+    ) && /(چند|قیمت|نرخ|چنده)/.test(t)
+  )
+    return true;
+  return false;
 }
 
 type MarketSnap = { line: string; asOf?: string };
@@ -101,11 +106,13 @@ async function fetchIranMarketSnap(): Promise<MarketSnap | null> {
     const parts: string[] = [];
     const usd = by("USD_IRR_FREE");
     const eur = by("EUR_IRR_FREE");
+    const gbp = by("GBP_IRR_FREE");
     const gold = by("GOLD_18K_IRR");
     const coin = by("COIN_EMAMI_IRR");
     const usdt = by("USDT_IRR");
     if (usd?.price != null) parts.push(`دلار آزاد ≈ ${fmt(usd.price)} تومان`);
     if (eur?.price != null) parts.push(`یورو آزاد ≈ ${fmt(eur.price)} تومان`);
+    if (gbp?.price != null) parts.push(`پوند ≈ ${fmt(gbp.price)} تومان`);
     if (usdt?.price != null) parts.push(`تتر ≈ ${fmt(usdt.price)} تومان`);
     if (gold?.price != null) parts.push(`طلای ۱۸ عیار ≈ ${fmt(gold.price)} تومان در هر گرم`);
     if (coin?.price != null) parts.push(`سکه امامی ≈ ${fmt(coin.price)} تومان`);
@@ -114,7 +121,7 @@ async function fetchIranMarketSnap(): Promise<MarketSnap | null> {
     const line =
       `داده زنده بازار آزاد ایران${asOf ? ` (به‌روزرسانی منبع: ${asOf})` : ""}:\n` +
       parts.map((p) => `- ${p}`).join("\n") +
-      `\nاین اعداد تقریبی‌اند و ممکن است چند دقیقه تا نیم‌ساعت تأخیر داشته باشند. منبع: iran-market.`;
+      `\nاین اعداد تقریبی‌اند. برای هر ارز دیگری AI باید با دانش و استدلال خودش جواب بدهد.`;
     return { line, asOf };
   } catch (e) {
     logAi("market_fetch_fail", e);
@@ -183,20 +190,20 @@ function systemPrompt(
       ? `\nحافظه یادگیری:\n${learningBrief.trim()}\n`
       : "";
   const base =
-    `تو «پویا» هستی: مربی زنده آموزش برای دانش‌آموزان ایران.\n` +
+    `تو «پویا» هستی: مربی زنده و کنجکاو برای دانش‌آموزان ایران.\n` +
     `قوانین:\n` +
     `- ${levelLine(level)}\n` +
-    `- مغز اصلی تو هوش مصنوعی است: هر سؤال را تحلیل کن و جواب هوشمند بده.\n` +
-    `- مستقیم و طبیعی به همان سؤال جواب بده؛ مثل یک معلم باهوش، نه منوی دکمه.\n` +
+    `- مغز اصلی تو هوش مصنوعی است: هر چیزی که بچه بپرسد — شهر، کشور، حیوان، تاریخ، قیمت، ورزش، بازی، «این چیه؟» — خودت بفهم و جواب بده.\n` +
+    `- هیچ لیست ازپیش‌تعیین‌شده‌ای برای موضوعات مجاز وجود ندارد. منتظر کلیدواژه خاص نباش.\n` +
+    `- مستقیم و طبیعی به همان سؤال جواب بده؛ مثل معلم باهوش و کنجکاو، نه منوی دکمه و نه ربات کلمات کلیدی.\n` +
     `- از لیست‌های کلیشه‌ای و خوش‌آمد اضافی پرهیز کن مگر کاربر فقط سلام کرده باشد.\n` +
-    `- مثل ربات کلمات کلیدی نباش.\n` +
-    `- هرگز برای سؤال‌های روزمره (قیمت، خبر، واقعیت) نگو «نمی‌توانم اطلاعات به‌روز بدهم». اگر داده زنده در پرامپت هست همان را بگو؛ اگر نیست با استدلال و دانش خودت کمک کن و محدودیت را کوتاه بگو.\n` +
+    `- اگر مطمئن نیستی، بهترین تخمین و توضیح را بده و کوتاه بگو تقریبی است؛ هرگز نگو «نمی‌دانم این موضوع را پوشش نمی‌دهم» یا «نمی‌توانم اطلاعات به‌روز بدهم».\n` +
+    `- اگر داده زنده بازار در پرامپت هست برای قیمت از آن کمک بگیر؛ برای بقیهٔ دنیا از دانش خودت.\n` +
     `- اگر کاربر عکس/شکل/نقشه خواست: هرگز نگو نمی‌توانی تصویر نشان دهی. سیستم خودش عکس می‌آورد. فقط توضیح کوتاه بده و در انتها [wiki:عبارت انگلیسی دقیق] مثل [wiki:Iran location map] بگذار. هرگز [تصویر] ننویس.\n` +
     `- ایمنی کودک: اگر کاربر از آسیب به خود، خودکشی، خشونت خانگی یا سوءاستفاده گفت، همدلی کوتاه کن، کمک گرفتن از بزرگ‌تر/اورژانس را پیشنهاد بده، راهنمایی آسیب‌زا نده. اطلاعات شخصی حساس را نخواه.\n` +
     `- فقط محتوای جنسی ممنوع است.\n` +
     `- در صورت نیاز [diagram:id] از این‌ها: ${DIAGRAM_IDS}\n` +
     `- زبان پاسخ = زبان پیام کاربر.\n` +
-    `- اگر بلوک «داده زنده بازار» در همین پیام سیستم هست، برای قیمت دلار/یورو/طلا/سکه همان را مبنا بگذار و هرگز نگو «نمی‌توانم اطلاعات به‌روز بدهم». عدد را واضح بگو و بگو تقریبی و وابسته به بازار آزاد است.\n` +
     textbookStyleRules(level) +
     vision +
     memory +
@@ -333,15 +340,18 @@ export const askPouya = createServerFn({ method: "POST" })
       if (wantsLiveMarket(lastUser)) {
         const snap = await fetchIranMarketSnap();
         if (snap?.line) {
-          system = `${system}\n\nداده زنده بازار (فقط کمک به تحلیل AI):\n${snap.line}`;
+          system = `${system}\n\nداده زنده بازار (کمک به AI، نه جایگزین فکر کردن):\n${snap.line}`;
         }
       }
 
+      // فقط سلام خالص — بقیه همیشه AI
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
       const factQ = isFactRequest(lastUser);
-      const lessonQ = !factQ && isLessonQuestion(lastUser, mode);
+      // فقط در حالت صریح درس از حافظه مشترک؛ سؤال آزاد همیشه اول AI
+      const lessonQ = !factQ && (mode === "lesson" || mode === "daily");
+      const educational = !factQ && isLessonQuestion(lastUser, mode);
 
       if (lessonQ) {
         const remembered = await brainLookupShared(lastUser, level, data.assistantId);
@@ -398,7 +408,7 @@ export const askPouya = createServerFn({ method: "POST" })
       }
       text = stripForeignImages(text);
 
-      if (lessonQ && provider && provider !== "bank") {
+      if ((lessonQ || educational) && provider && provider !== "bank") {
         try {
           await brainRememberShared(lastUser, text, { level, assistantId: data.assistantId });
         } catch {
