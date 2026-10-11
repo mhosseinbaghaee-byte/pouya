@@ -229,7 +229,7 @@ export function ChatPane(props: {
                   className={cn(chipClass, level === l.id && "bg-white/35 ring-1 ring-white/50 font-medium")}
                   aria-pressed={level === l.id}
                 >
-                  {l.labelFa}
+                  {l.label}
                 </button>
               ))}
             </div>
