@@ -212,8 +212,8 @@ function systemPrompt(
   if (mode === "live" || mode === "language") {
     return (
       base +
-      `\nحالت آموزش زبان زنده (${lang.labelFa} / ${lang.labelEn}):\n` +
-      `- جواب اصلی به ${lang.labelEn} باشد.\n` +
+      `\nحالت آموزش زبان زنده (${lang.label} / ${lang.native}):\n` +
+      `- جواب اصلی به ${lang.native} باشد.\n` +
       `- غلط‌های کاربر را مودب اصلاح کن.\n` +
       `- ترجمه‌ی کوتاه فارسی در پرانتز مجاز است.\n`
     );
@@ -344,12 +344,10 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // فقط سلام خالص — بقیه همیشه AI
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
       const factQ = isFactRequest(lastUser);
-      // فقط در حالت صریح درس از حافظه مشترک؛ سؤال آزاد همیشه اول AI
       const lessonQ = !factQ && (mode === "lesson" || mode === "daily");
       const educational = !factQ && isLessonQuestion(lastUser, mode);
 
