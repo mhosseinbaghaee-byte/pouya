@@ -51,7 +51,7 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 type ChatResult = { ok: true; text: string; provider?: string } | { ok: false; error: string };
 type ProviderId = "bank" | "openai" | "gemini";
 
-const DEFAULT_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const DEFAULT_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
 function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODELS;
   const list = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -338,14 +338,12 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // ۱) سلام/تأیید کوتاه → بانک سریع
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) return { ok: true, text: sanitizeStudentMath(bank, level), provider: "bank" };
 
       const factQ = isFactRequest(lastUser);
       const lessonQ = !factQ && isLessonQuestion(lastUser, mode);
 
-      // ۲) سؤال درسی (نه دانستنی) → اول بانک برای جواب سریع
       if (lessonQ) {
         const remembered = brainLookup(lastUser, level, data.assistantId);
         if (remembered?.a) {
@@ -353,7 +351,6 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // ۳) مسیر اصلی: هوش مصنوعی
       let reply: string | null = null;
       let provider: ProviderId | undefined;
       for (const p of providerOrder()) {
@@ -374,7 +371,6 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      // ۴) AI قطع بود → پشتیبان
       if (!reply) {
         logAi("ai_all_failed", {
           order: providerOrder(),
