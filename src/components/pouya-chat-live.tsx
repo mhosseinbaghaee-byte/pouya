@@ -1,206 +1,80 @@
-import { type RefObject, useRef, useState } from "react";
-import { Bookmark, BookOpen, Check, Copy, History, Languages, Mic, Plus, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import {
-  LANGUAGES,
-  LEVELS,
-  SCENARIOS,
-  TOPICS,
-  type LangCode,
-  type Level,
-} from "@/lib/topics";
-import { saveProfile } from "@/lib/profile";
+  BookOpen,
+  History,
+  Mic,
+  Plus,
+  Save,
+  SendHorizontal,
+  Sparkles,
+  Square,
+  Trash2,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
+import { useRef, useState, type RefObject } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { RichText } from "./rich-text";
-import { Button } from "./ui/button";
-import { Textarea } from "./ui/input";
+import { saveProfile } from "@/lib/profile";
+import type { Level } from "@/lib/topics";
+import { LEVELS } from "@/lib/topics";
 import type { ChatMode } from "@/lib/ai";
-import { PouyaFaceButton } from "./pouya-face-button";
 
-type ChatMsg = { role: "user" | "assistant"; content: string; image?: string };
-export type ChatAttachment = { name: string; mime: string; dataUrl: string };
-
-function Bubble({ role, text, image, live }: { role: "user" | "assistant"; text: string; image?: string; live?: boolean }) {
-  const mine = role === "user";
-  const [copied, setCopied] = useState(false);
-
-  async function copyText(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!text?.trim()) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.setAttribute("readonly", "");
-        ta.style.position = "fixed";
-        ta.style.top = "0";
-        ta.style.left = "0";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1800);
-      } catch {
-        /* ignore */
-      }
+function extractPdfTextClient(bytes: Uint8Array): string {
+  try {
+    const raw = new TextDecoder("latin1").decode(bytes);
+    const parts: string[] = [];
+    const tj = /\(([^\\()\n]{1,400}(?:\\.[^\\()\n]*)*)\)\s*Tj/g;
+    let m: RegExpExecArray | null;
+    while ((m = tj.exec(raw))) {
+      let s = m[1].replace(/\\n/g, "\n").replace(/\\r/g, "").replace(/\\([()\\])/g, "$1");
+      if (/[\u0600-\u06FFa-zA-Z0-9]/.test(s)) parts.push(s);
+      if (parts.length > 4000) break;
     }
+    return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, 12000);
+  } catch {
+    return "";
   }
-
-  return (
-    <div className={cn("flex max-w-[88%] flex-col", mine ? "ms-auto" : "")}>
-      <article
-        className={cn(
-          "rounded-2xl px-4 py-3 text-sm leading-normal shadow-sm",
-          mine ? "bg-stage text-cream" : "border border-white/40 bg-white/85 text-ink backdrop-blur-md",
-          live && "opacity-95",
-        )}
-      >
-        {image ? (
-          <img
-            src={image}
-            alt="پیوست"
-            className={cn(
-              "mb-2 max-h-48 w-auto max-w-full rounded-xl object-contain",
-              mine ? "border border-white/20" : "border border-border/40",
-            )}
-          />
-        ) : null}
-        {mine ? <p className="text-pretty">{text}</p> : <RichText text={text} />}
-        {!live ? (
-          <div className="mt-2 flex justify-start" dir="ltr">
-            <button
-              type="button"
-              onClick={copyText}
-              className={cn(
-                "inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded-full px-2 text-[10px] font-medium touch-manipulation",
-                mine
-                  ? "bg-white/15 text-cream/90 hover:bg-white/25"
-                  : "bg-black/5 text-fg-muted hover:bg-black/10 hover:text-ink",
-              )}
-              aria-label={copied ? "کپی شد" : "کپی متن"}
-            >
-              {copied ? (
-                <>
-                  <Check className="size-3.5 shrink-0" strokeWidth={2.5} />
-                  <span>کپی شد</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="size-3.5 shrink-0" strokeWidth={2.25} />
-                  <span>کپی</span>
-                </>
-              )}
-            </button>
-          </div>
-        ) : null}
-      </article>
-    </div>
-  );
 }
 
-function ActionBar({
-  onNew,
-  onSave,
-  canSave,
-  onHistory,
-}: {
-  onNew: () => void;
-  onSave: () => void;
-  canSave: boolean;
-  onHistory?: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 px-3 py-2 sm:px-4">
-      <Button type="button" variant="ghost" size="sm" onClick={onSave} disabled={!canSave} className="gap-1 text-cream/90 hover:bg-white/15 hover:text-cream">
-        <Bookmark className="size-4" />
-        ذخیره
-      </Button>
-      {onHistory ? (
-        <Button type="button" variant="ghost" size="sm" onClick={onHistory} className="gap-1 text-cream/90 hover:bg-white/15 hover:text-cream" aria-label="تاریخچه گفتگو">
-          <History className="size-4" />
-          تاریخچه
-        </Button>
-      ) : null}
-      <div className="min-w-0 flex-1" />
-      <Button type="button" variant="ghost" size="sm" onClick={onNew} className="text-cream/90 hover:bg-white/15 hover:text-cream">
-        گفتگوی تازه
-      </Button>
-    </div>
-  );
-}
-
+export type ChatAttachment = { name: string; mime: string; dataUrl: string };
 export type HistoryItem = { id: string; title: string; when: string };
 
-function HistorySheet({
-  open,
-  items,
-  activeId,
-  onClose,
-  onOpen,
-  onDelete,
-}: {
-  open: boolean;
-  items: HistoryItem[];
-  activeId?: string;
-  onClose: () => void;
-  onOpen: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  if (!open) return null;
+type Msg = { role: "user" | "assistant"; content: string; image?: string };
+
+const chipClass =
+  "rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs text-cream backdrop-blur hover:bg-white/25";
+
+function PouyaFaceButton(props: { onClick?: () => void; label: string; disabled?: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 p-3 sm:items-center" role="dialog" aria-modal="true" aria-label="تاریخچه گفتگو">
-      <div className="flex max-h-[75dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/20 bg-stage-deep text-cream shadow-xl">
-        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-          <History className="size-4 opacity-80" />
-          <p className="flex-1 text-sm font-medium">تاریخچه گفتگو</p>
-          <button type="button" className="rounded-full p-2 hover:bg-white/10" onClick={onClose} aria-label="بستن">
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {items.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-cream/60">هنوز گفتگویی ذخیره نشده.</p>
-          ) : (
-            <ul className="space-y-1">
-              {items.map((it) => (
-                <li key={it.id} className={cn("flex items-stretch gap-1 rounded-xl", activeId === it.id && "bg-white/10")}>
-                  <button type="button" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-start hover:bg-white/10" onClick={() => onOpen(it.id)}>
-                    <p className="truncate text-sm font-medium">{it.title}</p>
-                    <p className="mt-0.5 text-xs text-cream/55">{it.when}</p>
-                  </button>
-                  <button type="button" className="shrink-0 rounded-xl px-3 text-cream/50 hover:bg-white/10 hover:text-cream" aria-label="حذف" onClick={() => onDelete(it.id)}>
-                    <Trash2 className="size-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+    <Button type="button" size="sm" variant="outline" disabled={props.disabled} onClick={props.onClick} className="rounded-full border-border/60 bg-white/70" aria-label={props.label}>
+      {props.label}
+    </Button>
   );
 }
 
-const chipClass =
-  "inline-flex h-11 min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-3.5 text-sm text-cream backdrop-blur-md touch-manipulation select-none hover:bg-white/25 active:scale-[0.98]";
-
-export function ChatPane({
-  messages, typed, busy, draft, setDraft, level, setLevel, voiceOn, setVoiceOn, mode, listening,
-  scrollerRef, onSend, onLesson, onDaily, onFact, onMic, onLivePractice, onNew, onSave, onTypingFocus, onVoiceCall,
-  historyItems, historyOpen, setHistoryOpen, activeSessionId, onOpenHistoryItem, onDeleteHistoryItem,
-}: {
-  messages: ChatMsg[]; typed: string; busy: boolean; draft: string; setDraft: (v: string) => void;
-  level: Level; setLevel: (v: Level) => void; voiceOn: boolean; setVoiceOn: (v: boolean) => void;
-  mode: ChatMode; listening: boolean; scrollerRef: RefObject<HTMLDivElement | null>;
-  onSend: (t: string, attachment?: ChatAttachment) => void; onLesson: (t: string) => void; onDaily: () => void; onFact: () => void;
-  onMic: () => void; onLivePractice: () => void; onNew: () => void; onSave: () => void;
+export function ChatPane(props: {
+  messages: Msg[];
+  typed: boolean;
+  busy: boolean;
+  draft: string;
+  setDraft: (v: string) => void;
+  level: Level;
+  setLevel: (v: Level) => void;
+  voiceOn: boolean;
+  setVoiceOn: (v: boolean) => void;
+  mode: ChatMode;
+  listening: boolean;
+  scrollerRef: RefObject<HTMLDivElement | null>;
+  onSend: (t: string, attachment?: ChatAttachment) => void;
+  onLesson: (t: string) => void;
+  onDaily: () => void;
+  onFact: () => void;
+  onMic: () => void;
+  onLivePractice: () => void;
+  onNew: () => void;
+  onSave: () => void;
   onTypingFocus?: (focused: boolean) => void;
   onVoiceCall?: () => void;
   historyItems?: HistoryItem[];
@@ -210,6 +84,11 @@ export function ChatPane({
   onOpenHistoryItem?: (id: string) => void;
   onDeleteHistoryItem?: (id: string) => void;
 }) {
+  const {
+    messages, typed, busy, draft, setDraft, level, setLevel, voiceOn, setVoiceOn, listening, scrollerRef,
+    onSend, onLesson, onDaily, onFact, onMic, onLivePractice, onNew, onSave, onTypingFocus, onVoiceCall,
+    historyItems = [], historyOpen, setHistoryOpen, activeSessionId, onOpenHistoryItem, onDeleteHistoryItem,
+  } = props;
   const empty = messages.length === 0 && !typed;
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState<ChatAttachment | null>(null);
@@ -218,119 +97,132 @@ export function ChatPane({
     if (!file) return;
     const okImage = file.type.startsWith("image/");
     const okText = file.type.startsWith("text/") || /\.txt$/i.test(file.name);
-    if (!okImage && !okText) {
-      window.alert("فعلاً عکس جزوه (JPG/PNG) یا فایل متنی را بفرست.");
+    const okPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (!okImage && !okText && !okPdf) {
+      window.alert("عکس جزوه، فایل متنی یا PDF را بفرست.");
       return;
     }
-    if (file.size > 4 * 1024 * 1024) {
-      window.alert("حجم فایل حداکثر ۴ مگابایت باشد.");
+    const max = okPdf ? 8 * 1024 * 1024 : 4 * 1024 * 1024;
+    if (file.size > max) {
+      window.alert(okPdf ? "حجم PDF حداکثر ۸ مگابایت باشد." : "حجم فایل حداکثر ۴ مگابایت باشد.");
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result || "");
       if (!dataUrl) return;
-      setPending({ name: file.name, mime: file.type || "application/octet-stream", dataUrl });
+      const mime = okPdf ? "application/pdf" : file.type || "application/octet-stream";
+      setPending({ name: file.name, mime, dataUrl });
     };
     reader.readAsDataURL(file);
   }
 
-  function submitChat() {
-    const text = draft.trim() || (pending ? `این ${pending.mime.startsWith("image/") ? "عکس/جزوه" : "فایل"} را بررسی کن و توضیح بده.` : "");
+  async function submitChat() {
+    let text =
+      draft.trim() ||
+      (pending
+        ? `این ${pending.mime.startsWith("image/") ? "عکس/جزوه" : pending.mime === "application/pdf" ? "PDF" : "فایل"} را بررسی کن و توضیح بده.`
+        : "");
     if (!text && !pending) return;
-    onSend(text, pending || undefined);
+    let attachment = pending || undefined;
+    if (attachment && (attachment.mime === "application/pdf" || /\.pdf$/i.test(attachment.name))) {
+      try {
+        const b64 = attachment.dataUrl.split(",")[1] || "";
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const extracted = extractPdfTextClient(bytes);
+        if (extracted.trim()) {
+          text = `${text}\n\n--- ${attachment.name} ---\n${extracted}`;
+        } else {
+          text = `${text}\n\n(متن این PDF قابل استخراج نبود؛ احتمالاً اسکن تصویری است. اگر می‌توانی متن را کپی کن یا عکس صفحه را بفرست.)`;
+        }
+      } catch {
+        text = `${text}\n\n(خواندن PDF با خطا مواجه شد.)`;
+      }
+      attachment = undefined;
+    }
+    onSend(text, attachment);
     setPending(null);
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ActionBar
-        onNew={onNew}
-        onSave={onSave}
-        canSave={messages.some((m) => m.role === "assistant")}
-        onHistory={setHistoryOpen ? () => setHistoryOpen(true) : undefined}
-      />
-      <HistorySheet
-        open={Boolean(historyOpen)}
-        items={historyItems || []}
-        activeId={activeSessionId}
-        onClose={() => setHistoryOpen?.(false)}
-        onOpen={(id) => { onOpenHistoryItem?.(id); setHistoryOpen?.(false); }}
-        onDelete={(id) => onDeleteHistoryItem?.(id)}
-      />
-      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={onNew} className="rounded-full border-border/60 bg-white/70">گفتگوی تازه</Button>
+        <Button type="button" size="sm" variant="outline" disabled={!messages.some((m) => m.role === "assistant")} onClick={onSave} className="rounded-full border-border/60 bg-white/70">
+          <Save className="me-1 size-3.5" />ذخیره
+        </Button>
+        {setHistoryOpen ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => setHistoryOpen(!historyOpen)} className="rounded-full border-border/60 bg-white/70">
+            <History className="me-1 size-3.5" />تاریخچه
+          </Button>
+        ) : null}
+        <PouyaFaceButton onClick={onVoiceCall} label="گفتگوی صوتی با پویا" disabled={busy} />
+      </div>
+
+      {historyOpen ? (
+        <div className="mb-2 w-full rounded-2xl border border-border/50 bg-white/80 p-2 text-sm shadow-sm">
+          {historyItems.length === 0 ? (
+            <p className="px-2 py-3 text-fg-muted">هنوز گفتگویی ذخیره نشده.</p>
+          ) : (
+            <ul className="max-h-40 space-y-1 overflow-y-auto">
+              {historyItems.map((h) => (
+                <li key={h.id} className={cn("flex items-center gap-2 rounded-xl px-2 py-1.5", activeSessionId === h.id ? "bg-stage/10" : "hover:bg-black/5")}>
+                  <button type="button" className="min-w-0 flex-1 text-start" onClick={() => onOpenHistoryItem?.(h.id)}>
+                    <span className="block truncate font-medium text-ink">{h.title}</span>
+                    <span className="block text-[11px] text-fg-muted">{h.when}</span>
+                  </button>
+                  <button type="button" className="rounded-full p-1 text-fg-muted hover:bg-black/5 hover:text-red-600" aria-label="حذف" onClick={() => onDeleteHistoryItem?.(h.id)}>
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
+      <div ref={scrollerRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1 py-2">
         {empty ? (
-          <div className="mx-auto flex w-full max-w-xl min-w-0 flex-col gap-5 pt-4 text-center">
-            <div className="px-1">
-              <h1 className="font-display text-2xl font-medium tracking-tight text-cream drop-shadow-sm sm:text-3xl">چی دوست داری یاد بگیری؟</h1>
-              <p className="mt-2 text-sm text-cream/75">بپرس، درس کوتاه بگیر، یا با صدا حرف بزن.</p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="سطح پاسخ پویا">
+          <div className="rounded-3xl border border-border/40 bg-gradient-to-b from-stage to-stage-deep p-4 text-sm leading-7 text-cream shadow-sm">
+            <p className="font-semibold">سلام، من پویام.</p>
+            <p className="mt-1 text-cream/85">بپرس، درس بگیر، PDF یا عکس جزوه بفرست.</p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2" role="group" aria-label="سطح پاسخ پویا">
               {LEVELS.map((l) => (
-                <button
-                  key={l.id}
-                  type="button"
-                  onClick={() => {
-                    setLevel(l.id);
-                    try {
-                      saveProfile({ level: l.id });
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  className={cn(chipClass, level === l.id && "bg-white/35 ring-1 ring-white/50 font-medium")}
-                  aria-pressed={level === l.id}
-                  title={l.hint}
-                >
+                <button key={l.id} type="button" onClick={() => { setLevel(l.id); try { saveProfile({ level: l.id }); } catch { /* */ } }} className={cn(chipClass, level === l.id && "bg-white/35 ring-1 ring-white/50 font-medium")} aria-pressed={level === l.id}>
                   {l.label}
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {TOPICS.map((t) => (
-                <button key={t.id} type="button" onClick={() => onLesson(t.prompt)} className={chipClass}>{t.label}</button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {["ریاضی", "فیزیک", "شیمی", "زیست", "فارسی", "انگلیسی"].map((t) => (
+                <button key={t} type="button" className={chipClass} onClick={() => onLesson(t)}>{t}</button>
               ))}
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLivePractice(); }} className={chipClass} aria-label="تمرین زبان">
-                <Languages className="size-4 shrink-0" /> تمرین زبان
-              </button>
-              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDaily(); }} className={chipClass} aria-label="مرور روزانه">
-                <BookOpen className="size-4 shrink-0" /> مرور روزانه
-              </button>
-              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onFact(); }} className={chipClass} aria-label="دانستی امروز">
-                دانستی امروز
-              </button>
+              <button type="button" className={chipClass} onClick={onDaily}>مرور روزانه</button>
+              <button type="button" className={chipClass} onClick={onFact}>دانستنی امروز</button>
+              <button type="button" className={chipClass} onClick={onLivePractice}>تمرین زبان</button>
             </div>
           </div>
         ) : (
-          <div className="mx-auto flex max-w-xl flex-col gap-3 pb-2">
-            {mode !== "chat" ? (
-              <p className="text-center text-xs text-cream/70">{mode === "daily" ? "حالت مرور روزانه" : mode === "lesson" ? "حالت درس کوتاه" : ""}</p>
-            ) : null}
-            {messages.map((m, i) => <Bubble key={i} role={m.role} text={m.content} image={m.image} />)}
-            {typed ? <Bubble role="assistant" text={typed} live /> : null}
-            {busy && !typed ? (
-              <div className="flex items-center gap-2 text-sm text-cream/80">
-                <span className="size-1.5 rounded-full bg-cream" />
-                پویا دارد فکر می‌کند
-              </div>
-            ) : null}
-          </div>
+          messages.map((m, i) => (
+            <div key={`${m.role}-${i}`} className={cn("max-w-[92%] rounded-2xl px-3 py-2 text-sm leading-7 shadow-sm", m.role === "user" ? "ms-auto bg-stage text-cream" : "me-auto bg-white/85 text-ink")}>
+              {m.image ? <img src={m.image} alt="" className="mb-2 max-h-48 rounded-xl object-contain" /> : null}
+              <div className="whitespace-pre-wrap">{m.content}</div>
+            </div>
+          ))
         )}
+        {busy ? (
+          <div className="me-auto inline-flex items-center gap-2 rounded-2xl bg-white/85 px-3 py-2 text-xs text-fg-muted shadow-sm">
+            <Sparkles className="size-3.5 animate-pulse" />پویا داره فکر می‌کنه…
+          </div>
+        ) : null}
       </div>
-      <form className="pouya-glass-composer mx-3 mb-3 sm:mx-5 sm:mb-4" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
+
+      <div className="mt-2 rounded-3xl border border-border/50 bg-white/80 p-2 shadow-sm">
         {pending ? (
-          <div className="mb-2 flex items-center gap-2 rounded-xl border border-border/50 bg-white/70 px-2 py-1.5">
-            {pending.mime.startsWith("image/") ? (
-              <img src={pending.dataUrl} alt="" className="size-12 rounded-lg object-cover" />
-            ) : (
-              <span className="text-xs text-fg-muted">📄 {pending.name}</span>
-            )}
+          <div className="mb-2 flex items-center gap-2 rounded-2xl bg-cream/80 px-2 py-1.5">
+            <BookOpen className="size-4 shrink-0 text-stage" />
             <span className="min-w-0 flex-1 truncate text-xs text-fg-muted">{pending.name}</span>
-            <button type="button" className="rounded-full p-1 text-fg-muted hover:bg-black/5" onClick={() => setPending(null)} aria-label="حذف پیوست">
-              <X className="size-4" />
-            </button>
+            <button type="button" className="rounded-full p-1 text-fg-muted hover:bg-black/5" onClick={() => setPending(null)} aria-label="حذف پیوست"><X className="size-4" /></button>
           </div>
         ) : null}
         <Textarea
@@ -339,116 +231,20 @@ export function ChatPane({
           onChange={(e) => setDraft(e.target.value)}
           onFocus={() => onTypingFocus?.(true)}
           onBlur={() => onTypingFocus?.(false)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitChat(); } }}
-          placeholder={listening ? "دارم گوش می‌دهم…" : "بپرس یا عکس جزوه را پیوست کن…"}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitChat(); } }}
+          placeholder={listening ? "دارم گوش می‌دهم…" : "بپرس؛ عکس یا PDF جزوه را پیوست کن…"}
           className="max-h-36 min-h-14 w-full resize-none border-0 bg-transparent px-1 py-1 text-base text-ink shadow-none placeholder:text-fg-subtle focus-visible:ring-0"
           disabled={busy}
         />
         <div className="mt-1 flex items-center gap-2">
-          <input ref={fileRef} type="file" accept="image/*,text/plain,.txt" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
-          <Button type="button" size="icon" variant="outline" disabled={busy} onClick={() => fileRef.current?.click()} aria-label="پیوست فایل یا عکس" className="rounded-full border-border/60 bg-white/70">
-            <Plus className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant={voiceOn ? "default" : "outline"}
-            disabled={busy}
-            onClick={() => {
-              const next = !voiceOn;
-              setVoiceOn(next);
-              try {
-                saveProfile({ voiceOn: next });
-              } catch {
-                /* ignore */
-              }
-            }}
-            aria-label={voiceOn ? "خاموش کردن سخن‌گو" : "روشن کردن سخن‌گو"}
-            aria-pressed={voiceOn}
-            className={cn("rounded-full", voiceOn ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}
-            title="سخن‌گوی پویا"
-          >
-            {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-          </Button>
-          <PouyaFaceButton onClick={onVoiceCall} label="گفتگوی صوتی با پویا" disabled={busy} />
-          <Button type="button" size="icon" variant={listening ? "default" : "outline"} onClick={onMic} disabled={busy} aria-label="میکروفون" className={cn("rounded-full", listening ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}>
-            <Mic className="size-4" />
-          </Button>
+          <input ref={fileRef} type="file" accept="image/*,text/plain,.txt,application/pdf,.pdf" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
+          <Button type="button" size="icon" variant="outline" disabled={busy} onClick={() => fileRef.current?.click()} aria-label="پیوست فایل یا عکس" className="rounded-full border-border/60 bg-white/70"><Plus className="size-4" /></Button>
+          <Button type="button" size="icon" variant={voiceOn ? "default" : "outline"} disabled={busy} onClick={() => { const next = !voiceOn; setVoiceOn(next); try { saveProfile({ voiceOn: next }); } catch { /* */ } }} aria-label={voiceOn ? "خاموش کردن سخن‌گو" : "روشن کردن سخن‌گو"} aria-pressed={voiceOn} className={cn("rounded-full", voiceOn ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")} title="سخن‌گوی پویا">{voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}</Button>
+          <Button type="button" size="icon" variant={listening ? "default" : "outline"} disabled={busy} onClick={onMic} aria-label={listening ? "توقف ضبط" : "صحبت با میکروفون"} className={cn("rounded-full", listening ? "bg-red-600 text-white hover:bg-red-700" : "border-border/60 bg-white/70">{listening ? <Square className="size-4" /> : <Mic className="size-4" />}</Button>
           <div className="flex-1" />
-          <Button type="submit" size="icon" disabled={busy || (!draft.trim() && !pending)} aria-label="ارسال" className="rounded-full bg-stage text-cream hover:bg-stage-deep">
-            <Send className="size-4" />
-          </Button>
+          <Button type="button" size="icon" disabled={busy || (!draft.trim() && !pending)} onClick={() => void submitChat()} className="rounded-full bg-stage text-cream hover:bg-stage-deep"><SendHorizontal className="size-4" /></Button>
         </div>
-      </form>
-    </div>
-  );
-}
-
-export function LivePane({
-  messages, typed, busy, draft, setDraft, level, setLevel, voiceOn, setVoiceOn, lang, setLang,
-  listening, scrollerRef, onSend, onScenario, onMic, onNew, onSave, onTypingFocus, onVoiceCall,
-}: {
-  messages: ChatMsg[]; typed: string; busy: boolean; draft: string; setDraft: (v: string) => void;
-  level: Level; setLevel: (v: Level) => void; voiceOn: boolean; setVoiceOn: (v: boolean) => void;
-  lang: LangCode; setLang: (v: LangCode) => void; listening: boolean;
-  scrollerRef: RefObject<HTMLDivElement | null>; onSend: (t: string) => void;
-  onScenario: (prompt: string) => void; onMic: () => void; onNew: () => void; onSave: () => void;
-  onTypingFocus?: (focused: boolean) => void;
-  onVoiceCall?: () => void;
-}) {
-  const empty = messages.length === 0 && !typed;
-  const currentLang = LANGUAGES.find((l) => l.code === lang);
-  void level; void setLevel; void voiceOn; void setVoiceOn;
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ActionBar onNew={onNew} onSave={onSave} canSave={messages.some((m) => m.role === "assistant")} />
-      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5">
-        {empty ? (
-          <div className="mx-auto flex max-w-xl flex-col gap-5 pt-4">
-            <div className="text-center">
-              <h1 className="font-display text-2xl font-medium text-cream sm:text-3xl">گفتگوی زنده · زبان</h1>
-              <p className="mt-2 text-sm text-cream/75">زبان را انتخاب کن و حرف بزن.</p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {LANGUAGES.map((l) => (
-                <button key={l.code} type="button" onClick={() => setLang(l.code)} className={cn("h-11 min-h-11 rounded-full border px-3.5 text-sm backdrop-blur-md touch-manipulation", lang === l.code ? "border-white bg-white text-ink" : "border-white/30 bg-white/15 text-cream")}>
-                  <span className="me-1.5">{l.flag}</span>{l.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {SCENARIOS.map((s) => (
-                <button key={s.id} type="button" onClick={() => onScenario(s.prompt)} className={chipClass}>{s.label}</button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="mx-auto flex max-w-xl flex-col gap-3">
-            <p className="text-center text-xs text-cream/70">گفتگوی زنده · {currentLang?.flag} {currentLang?.label}</p>
-            {messages.map((m, i) => <Bubble key={i} role={m.role} text={m.content} />)}
-            {typed ? <Bubble role="assistant" text={typed} live /> : null}
-            {busy && !typed ? <div className="text-sm text-cream/80">پویا دارد فکر می‌کند</div> : null}
-          </div>
-        )}
       </div>
-      <form className="pouya-glass-composer mx-3 mb-3 sm:mx-5 sm:mb-4" onSubmit={(e) => { e.preventDefault(); onSend(draft); }}>
-        <Textarea value={draft} rows={2} onChange={(e) => setDraft(e.target.value)} onFocus={() => onTypingFocus?.(true)} onBlur={() => onTypingFocus?.(false)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(draft); } }}
-          placeholder={listening ? "دارم گوش می‌دهم…" : `به ${currentLang?.native ?? "English"} یا فارسی بنویس…`}
-          className="max-h-36 min-h-14 w-full resize-none border-0 bg-transparent px-1 py-1 text-base text-ink shadow-none placeholder:text-fg-subtle focus-visible:ring-0"
-          disabled={busy}
-        />
-        <div className="mt-1 flex items-center gap-2">
-          <PouyaFaceButton onClick={onVoiceCall} label="گفتگوی صوتی با پویا" disabled={busy} />
-          <Button type="button" size="icon" variant={listening ? "default" : "outline"} onClick={onMic} disabled={busy} aria-label="میکروفون" className={cn("rounded-full", listening ? "bg-stage text-cream hover:bg-stage-deep" : "border-border/60 bg-white/70")}>
-            <Mic className="size-4" />
-          </Button>
-          <div className="flex-1" />
-          <Button type="submit" size="icon" disabled={busy || !draft.trim()} aria-label="ارسال" className="rounded-full bg-stage text-cream hover:bg-stage-deep">
-            <Send className="size-4" />
-          </Button>
-        </div>
-      </form>
     </div>
   );
 }

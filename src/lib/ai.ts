@@ -5,7 +5,7 @@ import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
 import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
 import { bankReply } from "./bank-first";
-import { brainLookup, brainRemember, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
+import { brainLookupShared, brainRememberShared, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
   findWikiImage,
   looksVisual,
@@ -65,7 +65,6 @@ function isFactRequest(text: string): boolean {
   return /(دانستی|دانستنی|واقعیت علمی|یک موضوع آموزشی روزانه)/.test(text.trim());
 }
 
-/** تشخیص سؤال قیمت لحظه‌ای ارز/طلای بازار ایران */
 function wantsLiveMarket(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
@@ -345,7 +344,7 @@ export const askPouya = createServerFn({ method: "POST" })
       const lessonQ = !factQ && isLessonQuestion(lastUser, mode);
 
       if (lessonQ) {
-        const remembered = brainLookup(lastUser, level, data.assistantId);
+        const remembered = await brainLookupShared(lastUser, level, data.assistantId);
         if (remembered?.a) {
           return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
         }
@@ -382,7 +381,7 @@ export const askPouya = createServerFn({ method: "POST" })
           reply = todayFact();
           provider = "bank";
         } else {
-          const remembered = brainLookup(lastUser, level, data.assistantId);
+          const remembered = await brainLookupShared(lastUser, level, data.assistantId);
           if (remembered?.a) {
             return { ok: true, text: sanitizeStudentMath(remembered.a, level), provider: "bank" };
           }
@@ -401,7 +400,7 @@ export const askPouya = createServerFn({ method: "POST" })
 
       if (lessonQ && provider && provider !== "bank") {
         try {
-          brainRemember(lastUser, text, { level, assistantId: data.assistantId });
+          await brainRememberShared(lastUser, text, { level, assistantId: data.assistantId });
         } catch {
           /* ignore */
         }
