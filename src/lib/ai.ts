@@ -68,7 +68,7 @@ function isFactRequest(text: string): boolean {
 function wantsLiveMarket(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
-  return /قیمت|نرخ|چند\s*ه|چنده|چنداست|چند\s*تومن|چند\s*تومان|چند\s*ریال|دلار|یورو|پوند|درهم|تتر|طلا|سکه|انس|bitcoin|btc|usdt|usd|eur|gbp/i.test(
+  return /قیمت|نرخ|چند\s*ه|چنده|چنداست|چند\s*تومن|چند\s*تومان|چند\s*ریال|دلار|یورو|پوند|لیر|لیره|درهم|تتر|طلا|سکه|انس|bitcoin|btc|usdt|usd|eur|gbp|try\b/i.test(
     t,
   );
 }
@@ -101,20 +101,47 @@ async function fetchIranMarketSnap(): Promise<MarketSnap | null> {
     const parts: string[] = [];
     const usd = by("USD_IRR_FREE");
     const eur = by("EUR_IRR_FREE");
+    const gbp = by("GBP_IRR_FREE");
     const gold = by("GOLD_18K_IRR");
     const coin = by("COIN_EMAMI_IRR");
     const usdt = by("USDT_IRR");
     if (usd?.price != null) parts.push(`دلار آزاد ≈ ${fmt(usd.price)} تومان`);
     if (eur?.price != null) parts.push(`یورو آزاد ≈ ${fmt(eur.price)} تومان`);
+    if (gbp?.price != null) parts.push(`پوند ≈ ${fmt(gbp.price)} تومان`);
     if (usdt?.price != null) parts.push(`تتر ≈ ${fmt(usdt.price)} تومان`);
     if (gold?.price != null) parts.push(`طلای ۱۸ عیار ≈ ${fmt(gold.price)} تومان در هر گرم`);
     if (coin?.price != null) parts.push(`سکه امامی ≈ ${fmt(coin.price)} تومان`);
+
+    try {
+      const usdNum =
+        typeof usd?.price === "string" ? Number(String(usd.price).replace(/,/g, "")) : Number(usd?.price);
+      if (Number.isFinite(usdNum) && usdNum > 0) {
+        const erCtrl = new AbortController();
+        const erTimer = setTimeout(() => erCtrl.abort(), 3500);
+        const erRes = await fetch("https://open.er-api.com/v6/latest/USD", {
+          signal: erCtrl.signal,
+          headers: { Accept: "application/json", "User-Agent": "pouya-tutor/1" },
+        });
+        clearTimeout(erTimer);
+        if (erRes.ok) {
+          const erJson = (await erRes.json()) as { rates?: Record<string, number> };
+          const tryPerUsd = Number(erJson.rates?.TRY);
+          if (Number.isFinite(tryPerUsd) && tryPerUsd > 0) {
+            const tryIrr = usdNum / tryPerUsd;
+            parts.push(`لیر ترکیه ≈ ${fmt(tryIrr)} تومان (تقریبی از دلار آزاد × نرخ جهانی)`);
+          }
+        }
+      }
+    } catch {
+      /* ignore TRY */
+    }
+
     if (!parts.length) return null;
     const asOf = json.updated_at || "";
     const line =
       `داده زنده بازار آزاد ایران${asOf ? ` (به‌روزرسانی منبع: ${asOf})` : ""}:\n` +
       parts.map((p) => `- ${p}`).join("\n") +
-      `\nاین اعداد تقریبی‌اند و ممکن است چند دقیقه تا نیم‌ساعت تأخیر داشته باشند. منبع: iran-market.`;
+      `\nاین اعداد تقریبی‌اند و ممکن است چند دقیقه تا نیم‌ساعت تأخیر داشته باشند. منبع: iran-market + نرخ جهانی برای لیر.`;
     return { line, asOf };
   } catch (e) {
     logAi("market_fetch_fail", e);
@@ -196,7 +223,7 @@ function systemPrompt(
     `- فقط محتوای جنسی ممنوع است.\n` +
     `- در صورت نیاز [diagram:id] از این‌ها: ${DIAGRAM_IDS}\n` +
     `- زبان پاسخ = زبان پیام کاربر.\n` +
-    `- اگر بلوک «داده زنده بازار» در همین پیام سیستم هست، برای قیمت دلار/یورو/طلا/سکه همان را مبنا بگذار و هرگز نگو «نمی‌توانم اطلاعات به‌روز بدهم». عدد را واضح بگو و بگو تقریبی و وابسته به بازار آزاد است.\n` +
+    `- اگر بلوک «داده زنده بازار» در همین پیام سیستم هست، برای قیمت دلار/یورو/پوند/لیر/طلا/سکه همان را مبنا بگذار و هرگز نگو «نمی‌توانم اطلاعات به‌روز بدهم». عدد را واضح بگو و بگو تقریبی و وابسته به بازار آزاد است.\n` +
     textbookStyleRules(level) +
     vision +
     memory +
