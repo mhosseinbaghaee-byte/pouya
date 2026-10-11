@@ -1,7 +1,9 @@
+import { getSql } from "./db";
+
 /**
  * مغز یادگیرنده پویا
- * - کلید = سطح + مربی + سؤال نرمال‌شده (نه تطبیق نرم)
- * - جواب شخصی‌سازی‌شده ذخیره نمی‌شود
+ * - کلید = سطح + مربی + سؤال نرمال‌شده
+ * - حافظه محلی + جدول مشترک DB برای کاربران بعدی
  */
 
 export type BrainEntry = {
@@ -36,21 +38,16 @@ function cacheKey(question: string, level?: string, assistantId?: string): strin
 export function isBankWorthyQuestion(q: string): boolean {
   const t = q.trim();
   if (t.length < 4 || t.length > 180) return false;
-  // دانستنی/موضوع تصادفی — هر بار تازه
   if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر|موضوع آموزشی روزانه|کد:\s*\d+)/.test(t)) return false;
-  // شخصی / احساسی کوتاه کش نشود
   if (/(اسمم|ناراحتم|خوشحالم|دوست دارم|دوست ندارم)/.test(t) && t.length < 40) return false;
-  // قیمت لحظه‌ای ارز/طلا کش نشود
   if (/(قیمت|نرخ).*(دلار|یورو|طلا|سکه)|دلار\s*چند|یورو\s*چند/.test(t)) return false;
   return true;
 }
 
-/** سؤال درسی/آموزشی — بانک سریع اول، بعد AI و به‌روزرسانی بانک */
 export function isLessonQuestion(q: string, mode?: string): boolean {
   if (mode === "lesson" || mode === "daily") return true;
   const t = q.trim();
   if (!t) return false;
-  // دانستنی/قیمت لحظه‌ای → بانک درسی نه؛ مستقیم AI
   if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر)/.test(t)) return false;
   if (/(قیمت|نرخ|دلار|یورو|طلا|سکه|تتر|خبر|هوا|ساعت|تاریخ امروز)/.test(t) && !/(معادله|فرمول|درس|ریاضی)/.test(t)) {
     return false;
@@ -124,5 +121,70 @@ export function imageCacheSet(query: string, url: string): void {
   if (imgCache.size > 200) {
     const first = imgCache.keys().next().value;
     if (first) imgCache.delete(first);
+  }
+}
+
+/** بازیابی از حافظه مشترک بین کاربران */
+export async function brainLookupShared(
+  question: string,
+  level?: string,
+  assistantId?: string,
+): Promise<BrainEntry | null> {
+  const local = brainLookup(question, level, assistantId);
+  if (local) return local;
+  const key = cacheKey(question, level, assistantId);
+  if (normalizeQ(question).length < 3) return null;
+  try {
+    const sql = await getSql();
+    const rows = await sql.query<{
+      question: string;
+      answer: string;
+      level: string | null;
+      hits: number;
+    }>("SELECT question, answer, level, hits FROM pouya_shared_brain WHERE q_key = $1 LIMIT 1", [key]);
+    const row = rows[0];
+    if (!row?.answer) return null;
+    try {
+      await sql.query("UPDATE pouya_shared_brain SET hits = hits + 1, updated_at = NOW() WHERE q_key = $1", [key]);
+    } catch {
+      /* ignore */
+    }
+    brainRemember(question, row.answer, { level, assistantId });
+    return {
+      q: row.question,
+      a: row.answer,
+      level: row.level || undefined,
+      hits: Number(row.hits) + 1,
+      updatedAt: Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** ذخیره دانش آموزشی برای کاربران بعدی */
+export async function brainRememberShared(
+  question: string,
+  answer: string,
+  opts?: { level?: string; assistantId?: string; imageUrl?: string },
+): Promise<void> {
+  brainRemember(question, answer, opts);
+  if (!isBankWorthyQuestion(question)) return;
+  if (!answer || answer.length < 40) return;
+  if (/اتصال مدل|در دسترس نیست|دانش آماده‌ام|نمی.?توانم.*تصویر/.test(answer)) return;
+  const key = cacheKey(question, opts?.level, opts?.assistantId);
+  try {
+    const sql = await getSql();
+    await sql.query(
+      `INSERT INTO pouya_shared_brain (q_key, question, answer, level, hits, updated_at)
+       VALUES ($1, $2, $3, $4, 1, NOW())
+       ON CONFLICT (q_key) DO UPDATE SET
+         answer = EXCLUDED.answer,
+         hits = pouya_shared_brain.hits + 1,
+         updated_at = NOW()`,
+      [key, question.trim().slice(0, 200), answer.slice(0, 4000), opts?.level || null],
+    );
+  } catch {
+    /* جدول migrate نشده یا DB در دسترس نیست */
   }
 }
