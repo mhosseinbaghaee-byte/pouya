@@ -191,14 +191,16 @@ function systemPrompt(
     `تو «پویا» هستی: مربی زنده و کنجکاو برای دانش‌آموزان ایران.\n` +
     `قوانین:\n` +
     `- ${levelLine(level)}\n` +
-    `- مغز اصلی تو هوش مصنوعی است: هر چیزی که بچه بپرسد — شهر، کشور، حیوان، تاریخ، قیمت، ورزش، بازی، «این چیه؟» — خودت بفهم و جواب بده.\n` +
-    `- هیچ لیست ازپیش‌تعیین‌شده‌ای برای موضوعات مجاز وجود ندارد. منتظر کلیدواژه خاص نباش.\n` +
-    `- مستقیم و طبیعی به همان سؤال جواب بده؛ مثل معلم باهوش و کنجکاو، نه منوی دکمه و نه ربات کلمات کلیدی.\n` +
-    `- از لیست‌های کلیشه‌ای و خوش‌آمد اضافی پرهیز کن مگر کاربر فقط سلام کرده باشد.\n` +
-    `- اگر مطمئن نیستی، بهترین تخمین و توضیح را بده و کوتاه بگو تقریبی است؛ هرگز نگو «نمی‌دانم این موضوع را پوشش نمی‌دهم» یا «نمی‌توانم اطلاعات به‌روز بدهم».\n` +
-    `- اگر داده زنده بازار در پرامپت هست برای قیمت از آن کمک بگیر؛ برای بقیهٔ دنیا از دانش خودت.\n` +
-    `- اگر کاربر عکس/شکل/نقشه خواست: هرگز نگو نمی‌توانی تصویر نشان دهی. سیستم خودش عکس می‌آورد. فقط توضیح کوتاه بده و در انتها [wiki:عبارت انگلیسی دقیق] مثل [wiki:Iran location map] بگذار. هرگز [تصویر] ننویس.\n` +
-    `- ایمنی کودک: اگر کاربر از آسیب به خود، خودکشی، خشونت خانگی یا سوءاستفاده گفت، همدلی کوتاه کن، کمک گرفتن از بزرگ‌تر/اورژانس را پیشنهاد بده، راهنمایی آسیب‌زا نده. اطلاعات شخصی حساس را نخواه.\n` +
+    `- مغز اصلی تو هوش مصنوعی است: هر چیزی که بچه بپرسد خودت بفهم و جواب بده. منتظر کلیدواژه یا لیست موضوع نباش.\n` +
+    `- مستقیم و طبیعی جواب بده؛ مثل معلم باهوش، نه ربات عذرخواه.\n` +
+    `- همیشه کمک‌کننده و انسان‌وار جواب بده. اگر کاربر نگران، مریض، ناراحت یا کنجکاو است همدلی کوتاه و راهنمایی مفید بده.\n` +
+    `- هرگز نگو به اطلاعات زنده / به‌روز / اینترنت دسترسی نداری. این جمله‌ها ممنوع است.\n` +
+    `- هرگز نگو نمی‌دانم، پوشش نمی‌دهم، خارج از تخصصم است، فقط دانش قبلی دارم — مگر برای محتوای جنسی صریح.\n` +
+    `- اگر مطمئن نیستی بهترین تخمین و قدم بعدی مفید بده و کوتاه بگو تقریبی است.\n` +
+    `- سؤال شخصی (مثل مریضی خانواده) را جدی بگیر: همدلی + توصیه عمومی ایمن + در صورت نیاز پیشنهاد کمک از بزرگ‌تر یا پزشک.\n` +
+    `- اگر داده زنده بازار در پرامپت هست از آن استفاده کن؛ وگرنه با دانش و استدلال خودت جواب بده.\n` +
+    `- اگر کاربر عکس/شکل/نقشه خواست نگو نمی‌توانی تصویر بدهی. سیستم عکس می‌آورد؛ توضیح کوتاه بده و [wiki:عبارت انگلیسی] بگذار.\n` +
+    `- ایمنی کودک: آسیب به خود/خودکشی/خشونت → همدلی کوتاه، پیشنهاد کمک از بزرگ‌تر/اورژانس، بدون راهنمایی آسیب‌زا.\n` +
     `- فقط محتوای جنسی ممنوع است.\n` +
     `- در صورت نیاز [diagram:id] از این‌ها: ${DIAGRAM_IDS}\n` +
     `- زبان پاسخ = زبان پیام کاربر.\n` +
@@ -232,6 +234,20 @@ function providerOrder(): ProviderId[] {
     .map((s) => s.trim().toLowerCase())
     .filter((s): s is ProviderId => s === "bank" || s === "openai" || s === "gemini");
   return list.length ? list : DEFAULT_ORDER;
+}
+
+function looksLikeLameRefusal(text: string): boolean {
+  const t = (text || "").trim();
+  if (!t) return true;
+  const low = t.replace(/\u200c/g, "");
+  if (/دسترسی\s*به\s*(اطلاعات|داده)/.test(low) && /(زنده|به\s*روز|اینترنت|لحظ)/.test(low)) return true;
+  if (/(نمی\s*توانم|نمیتوانم)/.test(low) && /(اطلاعات|داده\s*زنده|دسترسی|به\s*روز)/.test(low)) return true;
+  if (/فقط/.test(low) && /(دانش|اطلاعات)/.test(low) && /(قبلی|از\s*قبل|آموزش)/.test(low)) return true;
+  if (/(خارج\s*از\s*(تخصص|دامنه|محدوده)|پوشش\s*نمی|در\s*حیطه\s*من\s*نیست)/.test(low)) return true;
+  if (/(متاسفانه|متأسفانه)/.test(low) && /(نمی\s*توانم|نمیتوانم|دسترسی\s*ندارم)/.test(low)) return true;
+  if (/I (don't|do not|cannot|can't) (have|access|provide)/i.test(t) && /(real[- ]?time|up[- ]?to[- ]?date|live)/i.test(t))
+    return true;
+  return false;
 }
 
 async function callGemini(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
@@ -377,6 +393,36 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
+      if (reply && looksLikeLameRefusal(reply)) {
+        logAi("refusal_retry", reply.slice(0, 120));
+        const force =
+          system +
+          "\n\nدستور فوری: جواب قبلی‌ات شبیه عذرخواهی ربات بود. دوباره فقط یک جواب مفید انسانی بنویس. هرگز نگو دسترسی به اطلاعات زنده نداری. مستقیم به نیاز کاربر پاسخ بده.";
+        for (const p of providerOrder()) {
+          if (p === "gemini") {
+            const retry = await callGemini(messages, force, data.image);
+            if (retry && !looksLikeLameRefusal(retry)) {
+              reply = retry;
+              provider = "gemini";
+              break;
+            }
+          }
+          if (p === "openai") {
+            const retry = await callOpenAI(messages, force, data.image);
+            if (retry && !looksLikeLameRefusal(retry)) {
+              reply = retry;
+              provider = "openai";
+              break;
+            }
+          }
+        }
+        if (reply && looksLikeLameRefusal(reply)) {
+          reply =
+            "متوجه نگرانی‌ات هستم. دقیق‌تر بگو چه کمکی می‌خواهی تا قدم‌به‌قدم راهنمایی‌ات کنم. اگر حال کسی خوب نیست، با یک بزرگ‌تر یا پزشک هم صحبت کنید.";
+          provider = provider || "bank";
+        }
+      }
+
       if (!reply) {
         logAi("ai_all_failed", {
           order: providerOrder(),
@@ -450,77 +496,30 @@ export const speakPouya = createServerFn({ method: "POST" })
       ).trim();
       if (!key) return { ok: false as const, error: "no_tts_key" };
 
-      const baseUrl = (
+      const base = (
         process.env.OPENAI_BASE_URL ||
         process.env.LIARA_BASE_URL ||
-        process.env.OPENAI_TTS_BASE_URL ||
         "https://api.openai.com/v1"
       )
         .trim()
-        .replace(/\/+$/, "")
-        .replace(/\/audio\/speech$/, "");
-
-      const isLiara = /liara\.ir|ai\.liara/i.test(baseUrl);
-      const voice = process.env.OPENAI_TTS_VOICE || "onyx";
-      const envModel = (process.env.OPENAI_TTS_MODEL || "").trim();
-
-      const models = (
-        envModel
-          ? [envModel, "openai/tts-1", "google/gemini-3.1-flash-tts-preview", "tts-1"]
-          : isLiara
-            ? ["openai/tts-1", "google/gemini-3.1-flash-tts-preview", "tts-1"]
-            : ["tts-1", "openai/tts-1"]
-      ).filter((m, i, arr) => m && arr.indexOf(m) === i);
-
-      async function trySpeech(
-        base: string,
-        apiKey: string,
-        model: string,
-      ): Promise<{ ok: true; audio: string; mime: string } | { ok: false; status: number }> {
-        if (!apiKey || !base) return { ok: false, status: 0 };
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
-        try {
-          const res = await fetch(`${base}/audio/speech`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model, voice, input: text, response_format: "mp3" }),
-            signal: controller.signal,
-          });
-          if (!res.ok) {
-            const errBody = await res.text().catch(() => "");
-            logAi("tts_http", res.status, base, model, errBody.slice(0, 200));
-            return { ok: false, status: res.status };
-          }
-          const buf = Buffer.from(await res.arrayBuffer());
-          if (!buf.length) return { ok: false, status: 204 };
-          return { ok: true, audio: buf.toString("base64"), mime: "audio/mpeg" };
-        } catch (e) {
-          logAi("tts_fetch_fail", base, model, e);
-          return { ok: false, status: 0 };
-        } finally {
-          clearTimeout(timeout);
-        }
-      }
-
-      for (const model of models) {
-        const r = await trySpeech(baseUrl, key, model);
-        if (r.ok) return { ok: true as const, audio: r.audio, mime: r.mime };
-      }
-
-      logAi("tts_all_failed", { baseUrl, models, isLiara });
-      return { ok: false as const, error: "tts_unavailable" };
-    } catch (e) {
-      logAi("tts_fail", e);
-      return { ok: false as const, error: "tts_fail" };
-    }
-  });
-
-export const dailyFact = createServerFn({ method: "POST" })
-  .validator((input: unknown) => FactInput.parse(input))
-  .handler(async ({ data }) => {
-    try {
-      return { ok: true as const, text: todayFact() };
+        .replace(/\/+$/, "");
+      const voice = process.env.OPENAI_TTS_VOICE || "nova";
+      const model = process.env.OPENAI_TTS_MODEL || "tts-1";
+      const res = await fetch(`${base}/audio/speech`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model, voice, input: text }),
+      });
+      if (!res.ok) return { ok: false as const, error: "tts_http" };
+      const buf = Buffer.from(await res.arrayBuffer());
+      return {
+        ok: true as const,
+        audio: buf.toString("base64"),
+        mime: res.headers.get("content-type") || "audio/mpeg",
+      };
     } catch {
       return { ok: false as const, error: "unavailable" };
     }
