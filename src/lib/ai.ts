@@ -49,7 +49,7 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 type ChatResult = { ok: true; text: string; provider?: string } | { ok: false; error: string };
 type ProviderId = "bank" | "openai" | "gemini";
 
-const DEFAULT_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.5-flash", "gemini-3.8-flash"];
+const DEFAULT_GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"];
 function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODELS;
   const list = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -247,12 +247,16 @@ function looksLikeLameRefusal(text: string): boolean {
   if (/(متاسفانه|متأسفانه)/.test(low) && /(نمی\s*توانم|نمیتوانم|دسترسی\s*ندارم)/.test(low)) return true;
   if (/I (don't|do not|cannot|can't) (have|access|provide)/i.test(t) && /(real[- ]?time|up[- ]?to[- ]?date|live)/i.test(t))
     return true;
+  if (/اتصال\s*مدل\s*کامل\s*در\s*دسترس\s*نیست/.test(low)) return true;
   return false;
 }
 
 async function callGemini(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!key) return null;
+  if (!key) {
+    logAi("gemini_no_key");
+    return null;
+  }
   const models = geminiModels();
   type GemPart = { text?: string; inline_data?: { mime_type: string; data: string } };
   const imageParts: GemPart[] = [];
