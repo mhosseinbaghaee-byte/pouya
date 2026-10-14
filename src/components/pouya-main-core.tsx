@@ -148,14 +148,10 @@ export function PouyaMainApp() {
       if (prof.level === "kid" || prof.level === "teen" || prof.level === "adult") setLevel(prof.level);
       setVoiceOn(prof.voiceOn === true);
       if (prof.preferredAssistantId) setAssistantId(prof.preferredAssistantId);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     try {
       if (sessionStorage.getItem(INTRO_KEY) === "1") setIntroDone(true);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     setHydrated(true);
   }, []);
 
@@ -203,22 +199,9 @@ export function PouyaMainApp() {
         setMood("talk");
         if (voiceCallRef.current) setVoicePhase("talk");
         await new Promise<void>((resolve) => {
-          audio.onended = () => {
-            finish();
-            resolve();
-          };
-          audio.onerror = () => {
-            finish();
-            resolve();
-          };
-          audio.onpause = () => {
-            finish();
-            resolve();
-          };
-          void audio.play().catch(() => {
-            finish();
-            resolve();
-          });
+          audio.onended = () => { finish(); resolve(); };
+          audio.onerror = () => { finish(); resolve(); };
+          void audio.play().catch(() => { finish(); resolve(); });
         });
         return;
       }
@@ -226,47 +209,21 @@ export function PouyaMainApp() {
       voiceActiveRef.current = false;
     }
     try {
-      if (!window.speechSynthesis) {
-        finish();
-        return;
-      }
+      if (!window.speechSynthesis) { finish(); return; }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(spoken);
       u.lang = speakLang;
       u.rate = 1;
-      try {
-        const voices = window.speechSynthesis.getVoices?.() || [];
-        const want = speakLang.toLowerCase();
-        const pick =
-          voices.find((v) => v.lang?.toLowerCase() === want) ||
-          voices.find((v) => v.lang?.toLowerCase().startsWith(want.slice(0, 2))) ||
-          voices.find((v) => /fa|per|iran/i.test(`${v.lang} ${v.name}`)) ||
-          voices.find((v) => /ar[-_]?/i.test(v.lang || ""));
-        if (pick) {
-          u.voice = pick;
-          u.lang = pick.lang || speakLang;
-        }
-      } catch {
-        /* ignore */
-      }
       voiceActiveRef.current = true;
       setMood("talk");
       if (voiceCallRef.current) setVoicePhase("talk");
       await new Promise<void>((resolve) => {
-        u.onend = () => {
-          finish();
-          resolve();
-        };
-        u.onerror = () => {
-          finish();
-          resolve();
-        };
+        u.onend = () => { finish(); resolve(); };
+        u.onerror = () => { finish(); resolve(); };
         window.speechSynthesis.speak(u);
       });
       return;
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     finish();
   }
 
@@ -284,28 +241,16 @@ export function PouyaMainApp() {
       const sub = loadSubscription();
       const gate = canUseChat(sub.planId);
       if (!gate.ok) {
-        toast.error("سقف گفتگوی امروز این پلن تمام شده. از حساب، پلن بالاتر را فعال کن.");
+        toast.error("سقف گفتگوی امروز این پلن تمام شده.");
         return;
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     const useLang = nextLang ?? lang;
     setMode(nextMode);
     if (nextLang) setLang(nextLang);
     setDraft("");
     if (nextMode === "live") setTab("live");
     else setTab("chat");
-    if (attachment && !attachment.mime.startsWith("image/")) {
-      try {
-        const b64 = attachment.dataUrl.split(",")[1] || "";
-        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-        const decoded = new TextDecoder("utf-8").decode(bytes);
-        if (decoded) content = `${content}\n\n--- ${attachment.name} ---\n${decoded.slice(0, 6000)}`;
-      } catch {
-        /* ignore */
-      }
-    }
     const userMsg: ChatMsg = {
       role: "user",
       content,
@@ -341,9 +286,7 @@ export function PouyaMainApp() {
       try {
         noteInteraction({ userText: content, kind: "ask" });
         incrementChatUsage();
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
       setTyped("");
       if (!voiceActiveRef.current) setMood("idle");
     } catch {
@@ -410,26 +353,15 @@ export function PouyaMainApp() {
   })();
 
   function stopMic() {
-    try {
-      recRef.current?.stop();
-    } catch {
-      /* ignore */
-    }
+    try { recRef.current?.stop(); } catch { /* ignore */ }
     recRef.current = null;
     setListening(false);
   }
 
   function toggleMic(forMode: ChatMode = mode) {
     const SR = getSpeechRecognition();
-    if (!SR) {
-      toast.error("برای میکروفون از Chrome یا Edge استفاده کن.");
-      return;
-    }
-    if (listening) {
-      stopMic();
-      setMood("idle");
-      return;
-    }
+    if (!SR) { toast.error("برای میکروفون از Chrome یا Edge استفاده کن."); return; }
+    if (listening) { stopMic(); setMood("idle"); return; }
     if (busy) return;
     const rec = new SR();
     rec.lang = forMode === "live" ? localeForLangCode(lang) : "fa-IR";
@@ -513,9 +445,7 @@ export function PouyaMainApp() {
         setVoicePhase("idle");
         return;
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     stopMic();
     setDraft("");
     const history: ChatMsg[] = [...messagesRef.current, { role: "user", content }];
@@ -543,9 +473,7 @@ export function PouyaMainApp() {
       try {
         noteInteraction({ userText: content, kind: "ask" });
         incrementChatUsage();
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
       setMood("talk");
       setVoicePhase("talk");
       await playVoice(withFig);
@@ -629,11 +557,7 @@ export function PouyaMainApp() {
         type="button"
         className="relative flex min-h-dvh w-full flex-col items-center justify-end overflow-hidden bg-stage text-cream"
         onClick={() => {
-          try {
-            sessionStorage.setItem(INTRO_KEY, "1");
-          } catch {
-            /* ignore */
-          }
+          try { sessionStorage.setItem(INTRO_KEY, "1"); } catch { /* ignore */ }
           setIntroDone(true);
         }}
       >
@@ -664,20 +588,17 @@ export function PouyaMainApp() {
         )}
       >
         <nav
-          className={cn(
-            "pouya-tabbar flex w-full items-center gap-1 overflow-x-auto pb-1",
-            redShell ? "text-cream" : "text-fg",
-          )}
-          aria-label="بخش‌های پویا"
+          className={cn("pouya-glass-nav w-full min-w-0", redShell && "pouya-glass-nav-on-red")}
+          aria-label="بخش‌ها"
         >
           {(
             [
               ["chat", "گفتگو", MessageCircle],
               ["live", "زبان", Languages],
-              ["quiz", "آزمون", Brain],
-              ["vault", "گاوصندوق", Bookmark],
-              ["coaches", "مربیان", GraduationCap],
-              ["account", "حساب", BookOpen],
+              ["coaches", "مربی‌ها", BookOpen],
+              ["quiz", "آزمون", GraduationCap],
+              ["vault", "مغز دوم", Brain],
+              ["account", "حساب", Bookmark],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -685,29 +606,24 @@ export function PouyaMainApp() {
               type="button"
               onClick={() => setTab(id)}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs touch-manipulation",
+                "inline-flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] touch-manipulation sm:text-xs",
                 tab === id
                   ? redShell
-                    ? "border-white bg-white text-ink"
-                    : "border-stage bg-stage text-cream"
+                    ? "bg-white text-ink"
+                    : "bg-stage text-cream"
                   : redShell
-                    ? "border-white/25 bg-white/10 text-cream"
-                    : "border-border bg-card text-fg",
+                    ? "text-cream/85 hover:bg-white/10"
+                    : "text-fg-muted hover:bg-black/5",
               )}
             >
-              <Icon className="size-3.5" />
-              {label}
+              <Icon className="size-4" />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
       </header>
 
-      <main
-        className={cn(
-          "mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col px-3 py-3 sm:px-4",
-          redShell ? "text-cream" : "",
-        )}
-      >
+      <main className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col">
         {tab === "chat" ? (
           <ChatPane
             messages={messages}
