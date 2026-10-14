@@ -109,26 +109,15 @@ export const LANGUAGES: {
   { code: "zh", label: "چینی", native: "中文", flag: "🇨🇳", locale: "zh-CN" },
   { code: "ja", label: "ژاپنی", native: "日本語", flag: "🇯🇵", locale: "ja-JP" },
   { code: "ko", label: "کره‌ای", native: "한국어", flag: "🇰🇷", locale: "ko-KR" },
-  { code: "pt", label: "پرتغالی", native: "Português", flag: "🇵🇹", locale: "pt-BR" },
+  { code: "pt", label: "پرتغالی", native: "Português", flag: "🇧🇷", locale: "pt-BR" },
   { code: "hi", label: "هندی", native: "हिन्दी", flag: "🇮🇳", locale: "hi-IN" },
 ];
 
-export type Scenario = {
-  id: string;
-  label: string;
-  prompt: string;
-};
-
-export const SCENARIOS: Scenario[] = [
+export const SCENARIOS: { id: string; label: string; prompt: string }[] = [
   {
     id: "cafe",
     label: "کافه",
-    prompt: "Let's role-play ordering coffee and chatting in a café. You start as the barista.",
-  },
-  {
-    id: "airport",
-    label: "فرودگاه",
-    prompt: "Role-play at the airport: check-in, security, or asking for directions. You start.",
+    prompt: "Role-play ordering at a café. You are the barista. Keep turns short for a learner.",
   },
   {
     id: "hotel",

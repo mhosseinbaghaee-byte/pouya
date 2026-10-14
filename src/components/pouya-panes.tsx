@@ -1,3 +1,2 @@
-export { ChatPane } from "./pouya-chat-live";
-export { LivePane } from "./pouya-live-pane";
+export { ChatPane, LivePane } from "./pouya-chat-live";
 export { QuizPane, VaultPane } from "./pouya-quiz-vault";
