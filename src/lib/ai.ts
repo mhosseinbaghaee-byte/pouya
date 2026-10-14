@@ -7,12 +7,10 @@ import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
 import { bankReply } from "./bank-first";
 import { brainLookupShared, brainRememberShared, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
-  findWikiImage,
   looksVisual,
   queryFromPersian,
   resolveWikiTags,
   stripForeignImages,
-  wikiMarkdown,
 } from "./wiki-image";
 
 const MessageSchema = z.object({
@@ -51,7 +49,7 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 type ChatResult = { ok: true; text: string; provider?: string } | { ok: false; error: string };
 type ProviderId = "bank" | "openai" | "gemini";
 
-const DEFAULT_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
+const DEFAULT_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.5-flash", "gemini-3.8-flash"];
 function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODELS;
   const list = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -240,18 +238,19 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
   const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) return null;
   const models = geminiModels();
-  const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
+  type GemPart = { text?: string; inline_data?: { mime_type: string; data: string } };
+  const imageParts: GemPart[] = [];
   if (image) {
     const parsed = parseDataUrl(image);
-    if (parsed) parts.push({ inline_data: { mime_type: parsed.mime, data: parsed.b64 } });
+    if (parsed) imageParts.push({ inline_data: { mime_type: parsed.mime, data: parsed.b64 } });
   }
-  const contents = messages.map((m) => ({
+  const contents: Array<{ role: string; parts: GemPart[] }> = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
-  if (parts.length) {
+  if (imageParts.length) {
     const last = contents[contents.length - 1];
-    if (last && last.role === "user") last.parts = [...parts, ...last.parts];
+    if (last && last.role === "user") last.parts = [...imageParts, ...last.parts];
   }
   for (const model of models) {
     try {
@@ -400,9 +399,14 @@ export const askPouya = createServerFn({ method: "POST" })
 
       let text = sanitizeStudentMath(reply, level);
       if (looksVisual(lastUser) && !/\[wiki:/i.test(text)) {
-        const q = queryFromPersian(lastUser) || lastUser;
-        const tags = resolveWikiTags(q);
-        if (tags.length) text = `${text}\n\n${wikiMarkdown(tags[0]!)}`;
+        const q = queryFromPersian(lastUser);
+        if (q) text = `${text}\n\n[wiki:${q}]`;
+      }
+      try {
+        const resolved = await resolveWikiTags(text);
+        text = resolved.text;
+      } catch {
+        /* ignore wiki */
       }
       text = stripForeignImages(text);
 

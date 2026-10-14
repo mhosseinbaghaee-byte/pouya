@@ -12,9 +12,9 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { useRef, useState, type RefObject } from "react";
+import React, { useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { saveProfile } from "@/lib/profile";
 import type { Level } from "@/lib/topics";
@@ -56,7 +56,7 @@ function PouyaFaceButton(props: { onClick?: () => void; label: string; disabled?
 
 export function ChatPane(props: {
   messages: Msg[];
-  typed: boolean;
+  typed: boolean | string;
   busy: boolean;
   draft: string;
   setDraft: (v: string) => void;
@@ -228,10 +228,10 @@ export function ChatPane(props: {
         <Textarea
           value={draft}
           rows={2}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(e.target.value)}
           onFocus={() => onTypingFocus?.(true)}
           onBlur={() => onTypingFocus?.(false)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitChat(); } }}
+          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitChat(); } }}
           placeholder={listening ? "دارم گوش می‌دهم…" : "بپرس؛ عکس یا PDF جزوه را پیوست کن…"}
           className="max-h-36 min-h-14 w-full resize-none border-0 bg-transparent px-1 py-1 text-base text-ink shadow-none placeholder:text-fg-subtle focus-visible:ring-0"
           disabled={busy}
