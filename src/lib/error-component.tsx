@@ -9,7 +9,8 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
       </span>
       <h1 className="font-display text-lg font-medium">مشکلی پیش آمد</h1>
       <p className="max-w-md text-sm break-words text-fg-muted">
-        {error.message || "یک خطای غیرمنتظره رخ داد. صفحه را دوباره بارگذاری کن."}
+        {(error instanceof Error ? error.message : String(error || "")) ||
+          "یک خطای غیرمنتظره رخ داد. صفحه را دوباره بارگذاری کن."}
       </p>
     </main>
   );

@@ -23,7 +23,8 @@ export function isPureGreeting(text: string): boolean {
   }
   if (!matched) return false;
   if (!rest) return true;
-  if (/^(پویا|pouya|جان|عزیزم|رفیق)([!؟?\s]*)$/iu.test(rest)) return true;
+  // فقط نام کوتاه بعد از سلام
+  if (/^(من\s+)?[\u0600-\u06FFa-zA-Z]{2,20}(\s+(هستم|ام|عزیزم|رفیق))([!؟?\s]*)$/iu.test(rest)) return true;
   return false;
 }
 
@@ -46,9 +47,9 @@ export function localTutorReply(opts: {
   const prevAssistant = [...opts.messages].reverse().find((m) => m.role === "assistant")?.content ?? "";
   const userTurns = opts.messages.filter((m) => m.role === "user");
 
-  if (opts.mode === "daily") return localDaily(opts.messages);
+  if (opts.mode === "daily") return localDaily();
   if (opts.mode === "live" || opts.mode === "language") {
-    return localLanguage(opts.lang || "fa", last, opts.messages.length);
+    return localLanguage(opts.lang || "fa");
   }
 
   // سؤالات درباره خود پویا / مدل
@@ -79,46 +80,22 @@ export function localTutorReply(opts: {
     );
   }
 
-  const ack = ["خوبی", "خوبی؟", "چطوری", "چطوری؟", "چه خبر", "چه خبر؟", "مرسی", "ممنون", "باشه", "اوکی", "ok", "okay", "آره", "بله", "نه"];
-  const isAck = ack.some((a) => lastLower === a || lastLower === a + "?" || lastLower === a + "؟");
-
-  if (isPureGreeting(last)) {
-    if (userTurns.length <= 1) {
-      return `سلام! من پویام. هر سؤالی داری مستقیم بپرس — مثلاً «کوه چیست؟» یا «گرانش یعنی چه؟»`;
-    }
-    return `سلام دوباره. موضوع را بگو تا ادامه بدهیم.`;
-  }
-
-  if (isAck) {
-    return `خوبم، ممنون. آماده‌ام.\n\nسؤالت را مستقیم بنویس — مثلاً «چرخ چیست؟» یا «گرانش یعنی چه؟»`;
-  }
-
-  // فقط وقتی مدل قطع است — پشتیبانی بانکی
   const lesson = matchLesson(last);
   if (lesson) {
-    const replyText = `${lesson.title}\n\n${lesson.body}`;
-    if (replyText === prevAssistant) {
-      return `همین موضوع را یک‌بار گفتم. می‌خواهی عمیق‌ترش کنم، مثال روزمره بزنم، یا برویم سراغ موضوع بعدی؟`;
-    }
-    return replyText;
+    return lesson.answer;
   }
 
-  if (opts.mode === "lesson") {
-    const pick = LESSONS[Math.floor(Date.now() / 86_400_000) % LESSONS.length];
-    return `${pick.title}\n\n${pick.body}`;
+  if (isPureGreeting(last)) {
+    return "سلام! من پویام. هر سؤالی داری بپرس — درس، تمرین، یا هر چیزی که تو ذهنت هست.";
   }
 
-  if (last.includes("دانستی") || last.includes("واقعیت علمی") || /دانستنی/.test(last)) {
-    return todayFact();
+  if (userTurns.length <= 1 && last.length < 8) {
+    return "بگو دقیقاً چی می‌خوای یاد بگیری یا چه سؤالی داری؟";
   }
 
-  if (last.length >= 2) {
-    return (
-      `سؤالت را گرفتم: «${last.slice(0, 120)}».\n\n` +
-      `الان اتصال مدل کامل در دسترس نیست؛ با دانش آماده‌ام جواب می‌دهم.\n` +
-      `اگر منظورت تعریف یا توضیح همان موضوع است، یک‌بار دیگر با جمله کامل بپرس.`
-    );
-  }
-
-  return `من پویام. موضوع را مشخص بپرس — مثلاً «چرخ چیست؟» یا «گرانش یعنی چه؟»\nاگر میکروفون را بزنی با صدا هم حرف می‌زنیم.`;
+  void prevAssistant;
+  return (
+    "فعلاً اتصال کامل هوش مصنوعی در دسترس نیست، ولی می‌تونم کمکت کنم.\n\n" +
+    "سؤال را کمی دقیق‌تر بنویس (مثلاً «معادله درجه دو چیست؟» یا «پایتخت فرانسه کجاست؟») تا جواب بهتری بدهم."
+  );
 }
