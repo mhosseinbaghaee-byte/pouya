@@ -239,12 +239,14 @@ function providerOrder(): ProviderId[] {
 function looksLikeLameRefusal(text: string): boolean {
   const t = (text || "").trim();
   if (!t) return true;
-  if (/(دسترسی\s*به\s*(اطلاعات|داده).{0,20}(زنده|به‌?روز|اینترنت|لحظ)/).test(t)) return true;
-  if (/(نمی\s*توانم|نمیتوانم).{0,40}(اطلاعات\s*به‌?روز|داده\s*زنده|دسترسی)/).test(t)) return true;
-  if (/(فقط).{0,20}(دانش|اطلاعات).{0,20}(قبلی|از\s*قبل|آموزش)/).test(t)) return true;
-  if (/(خارج\s*از\s*(تخصص|دامنه|محدوده)|پوشش\s*نمی|در\s*حیطه\s*من\s*نیست)/).test(t)) return true;
-  if (/(متأسفانه|متاسفانه).{0,30}(نمی\s*توانم|نمیتوانم|دسترسی\s*ندارم)/).test(t)) return true;
-  if (/I (don't|do not|cannot|can't) (have|access|provide).{0,40}(real[- ]?time|up[- ]?to[- ]?date|live)/i.test(t)) return true;
+  const low = t.replace(/\u200c/g, "");
+  if (/دسترسی\s*به\s*(اطلاعات|داده)/.test(low) && /(زنده|به\s*روز|اینترنت|لحظ)/.test(low)) return true;
+  if (/(نمی\s*توانم|نمیتوانم)/.test(low) && /(اطلاعات|داده\s*زنده|دسترسی|به\s*روز)/.test(low)) return true;
+  if (/فقط/.test(low) && /(دانش|اطلاعات)/.test(low) && /(قبلی|از\s*قبل|آموزش)/.test(low)) return true;
+  if (/(خارج\s*از\s*(تخصص|دامنه|محدوده)|پوشش\s*نمی|در\s*حیطه\s*من\s*نیست)/.test(low)) return true;
+  if (/(متاسفانه|متأسفانه)/.test(low) && /(نمی\s*توانم|نمیتوانم|دسترسی\s*ندارم)/.test(low)) return true;
+  if (/I (don't|do not|cannot|can't) (have|access|provide)/i.test(t) && /(real[- ]?time|up[- ]?to[- ]?date|live)/i.test(t))
+    return true;
   return false;
 }
 
