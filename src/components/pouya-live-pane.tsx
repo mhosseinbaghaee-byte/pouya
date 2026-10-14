@@ -1,7 +1,7 @@
-import { type RefObject } from "react";
+import React, { type RefObject } from "react";
 import { Mic, SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { LANGUAGES, SCENARIOS, type Level, type LangCode } from "@/lib/topics";
 import { PouyaFaceButton } from "./pouya-face-button";
@@ -138,10 +138,10 @@ export function LivePane({
         <Textarea
           value={draft}
           rows={2}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(e.target.value)}
           onFocus={() => onTypingFocus?.(true)}
           onBlur={() => onTypingFocus?.(false)}
-          onKeyDown={(e) => {
+          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               onSend(draft);
