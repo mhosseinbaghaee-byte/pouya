@@ -137,6 +137,7 @@ export function PouyaMainApp() {
       window.clearTimeout(t4);
     };
   }, [messages, typed, busy, tab]);
+
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -170,6 +171,8 @@ export function PouyaMainApp() {
     setHistoryTick((n) => n + 1);
   }, [messages, sessionId]);
 
+  const redShell = tab === "chat" || tab === "live";
+
   function ensureDiagram(userText: string, reply: string) {
     if (/\[diagram:/i.test(reply)) return reply;
     const d = matchDiagram(userText);
@@ -200,10 +203,22 @@ export function PouyaMainApp() {
         setMood("talk");
         if (voiceCallRef.current) setVoicePhase("talk");
         await new Promise<void>((resolve) => {
-          audio.onended = () => { finish(); resolve(); };
-          audio.onerror = () => { finish(); resolve(); };
-          audio.onpause = () => { finish(); resolve(); };
-          void audio.play().catch(() => { finish(); resolve(); });
+          audio.onended = () => {
+            finish();
+            resolve();
+          };
+          audio.onerror = () => {
+            finish();
+            resolve();
+          };
+          audio.onpause = () => {
+            finish();
+            resolve();
+          };
+          void audio.play().catch(() => {
+            finish();
+            resolve();
+          });
         });
         return;
       }
@@ -211,7 +226,10 @@ export function PouyaMainApp() {
       voiceActiveRef.current = false;
     }
     try {
-      if (!window.speechSynthesis) { finish(); return; }
+      if (!window.speechSynthesis) {
+        finish();
+        return;
+      }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(spoken);
       u.lang = speakLang;
@@ -224,18 +242,31 @@ export function PouyaMainApp() {
           voices.find((v) => v.lang?.toLowerCase().startsWith(want.slice(0, 2))) ||
           voices.find((v) => /fa|per|iran/i.test(`${v.lang} ${v.name}`)) ||
           voices.find((v) => /ar[-_]?/i.test(v.lang || ""));
-        if (pick) { u.voice = pick; u.lang = pick.lang || speakLang; }
-      } catch { /* ignore */ }
+        if (pick) {
+          u.voice = pick;
+          u.lang = pick.lang || speakLang;
+        }
+      } catch {
+        /* ignore */
+      }
       voiceActiveRef.current = true;
       setMood("talk");
       if (voiceCallRef.current) setVoicePhase("talk");
       await new Promise<void>((resolve) => {
-        u.onend = () => { finish(); resolve(); };
-        u.onerror = () => { finish(); resolve(); };
+        u.onend = () => {
+          finish();
+          resolve();
+        };
+        u.onerror = () => {
+          finish();
+          resolve();
+        };
         window.speechSynthesis.speak(u);
       });
       return;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     finish();
   }
 
@@ -256,7 +287,9 @@ export function PouyaMainApp() {
         toast.error("سقف گفتگوی امروز این پلن تمام شده. از حساب، پلن بالاتر را فعال کن.");
         return;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     const useLang = nextLang ?? lang;
     setMode(nextMode);
     if (nextLang) setLang(nextLang);
@@ -269,7 +302,9 @@ export function PouyaMainApp() {
         const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
         const decoded = new TextDecoder("utf-8").decode(bytes);
         if (decoded) content = `${content}\n\n--- ${attachment.name} ---\n${decoded.slice(0, 6000)}`;
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     const userMsg: ChatMsg = {
       role: "user",
@@ -306,7 +341,9 @@ export function PouyaMainApp() {
       try {
         noteInteraction({ userText: content, kind: "ask" });
         incrementChatUsage();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       setTyped("");
       if (!voiceActiveRef.current) setMood("idle");
     } catch {
@@ -373,15 +410,26 @@ export function PouyaMainApp() {
   })();
 
   function stopMic() {
-    try { recRef.current?.stop(); } catch { /* ignore */ }
+    try {
+      recRef.current?.stop();
+    } catch {
+      /* ignore */
+    }
     recRef.current = null;
     setListening(false);
   }
 
   function toggleMic(forMode: ChatMode = mode) {
     const SR = getSpeechRecognition();
-    if (!SR) { toast.error("برای میکروفون از Chrome یا Edge استفاده کن."); return; }
-    if (listening) { stopMic(); setMood("idle"); return; }
+    if (!SR) {
+      toast.error("برای میکروفون از Chrome یا Edge استفاده کن.");
+      return;
+    }
+    if (listening) {
+      stopMic();
+      setMood("idle");
+      return;
+    }
     if (busy) return;
     const rec = new SR();
     rec.lang = forMode === "live" ? localeForLangCode(lang) : "fa-IR";
@@ -465,7 +513,9 @@ export function PouyaMainApp() {
         setVoicePhase("idle");
         return;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     stopMic();
     setDraft("");
     const history: ChatMsg[] = [...messagesRef.current, { role: "user", content }];
@@ -493,7 +543,9 @@ export function PouyaMainApp() {
       try {
         noteInteraction({ userText: content, kind: "ask" });
         incrementChatUsage();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       setMood("talk");
       setVoicePhase("talk");
       await playVoice(withFig);
@@ -552,46 +604,110 @@ export function PouyaMainApp() {
     }
   }
 
-  function saveLast() {
+  function saveLast(folder: FolderId = "knowledge") {
     const last = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!last) { toast.error("هنوز جوابی برای ذخیره نیست."); return; }
-    const folder: FolderId = mode === "live" ? "languages" : "lessons";
-    saveNote({ title: titleFromBody(last.content), body: last.content, folder });
+    if (!last) {
+      toast.error("هنوز جوابی برای ذخیره نیست.");
+      return;
+    }
+    saveNote({ folder, title: titleFromBody(last.content), body: last.content, source: "chat" });
     toast.success("در گاوصندوق ذخیره شد.");
   }
 
+  function openLivePractice() {
+    setTab("live");
+    setMode("live");
+  }
+
   if (!hydrated) {
-    return <div className="flex min-h-[50vh] items-center justify-center text-sm text-cream/70">در حال بارگذاری…</div>;
+    return <div className="min-h-dvh w-full bg-stage" aria-busy="true" />;
+  }
+
+  if (!introDone) {
+    return (
+      <button
+        type="button"
+        className="relative flex min-h-dvh w-full flex-col items-center justify-end overflow-hidden bg-stage text-cream"
+        onClick={() => {
+          try {
+            sessionStorage.setItem(INTRO_KEY, "1");
+          } catch {
+            /* ignore */
+          }
+          setIntroDone(true);
+        }}
+      >
+        <PouyaStage mood="idle" caption="" immersive showCaption={false} />
+        <div className="relative z-10 flex w-full flex-col items-center gap-2 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-8">
+          <p className="font-display text-2xl font-medium tracking-tight">سلام، من پویا هستم</p>
+          <p className="text-sm text-cream/80">مربی زنده دانش و زبان</p>
+          <p className="mt-6 text-xs text-cream/60">برای ادامه لمس کن</p>
+        </div>
+      </button>
+    );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
-      <PouyaStage mood={mood} />
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {([
-          ["chat", "گفتگو", MessageCircle],
-          ["live", "زبان زنده", Languages],
-          ["quiz", "آزمون", Brain],
-          ["vault", "گاوصندوق", Bookmark],
-          ["coaches", "مربیان", GraduationCap],
-          ["account", "حساب", BookOpen],
-        ] as const).map(([id, label, Icon]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs backdrop-blur-md touch-manipulation",
-              tab === id ? "border-white bg-white text-ink" : "border-white/30 bg-white/15 text-cream",
-            )}
-          >
-            <Icon className="size-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
+    <div
+      className={cn(
+        "flex min-h-dvh w-full min-w-0 flex-col overflow-x-hidden text-fg",
+        redShell ? "bg-stage" : "bg-background",
+      )}
+      dir="rtl"
+    >
+      <header
+        className={cn(
+          "flex w-full shrink-0 flex-col gap-2 px-3 pt-[max(0.55rem,env(safe-area-inset-top))] pb-2 sm:px-4",
+          redShell
+            ? "border-b border-white/10 bg-stage-deep/30 backdrop-blur-md"
+            : "border-b border-border bg-card/80 backdrop-blur-md",
+        )}
+      >
+        <nav
+          className={cn(
+            "pouya-tabbar flex w-full items-center gap-1 overflow-x-auto pb-1",
+            redShell ? "text-cream" : "text-fg",
+          )}
+          aria-label="بخش‌های پویا"
+        >
+          {(
+            [
+              ["chat", "گفتگو", MessageCircle],
+              ["live", "زبان", Languages],
+              ["quiz", "آزمون", Brain],
+              ["vault", "گاوصندوق", Bookmark],
+              ["coaches", "مربیان", GraduationCap],
+              ["account", "حساب", BookOpen],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs touch-manipulation",
+                tab === id
+                  ? redShell
+                    ? "border-white bg-white text-ink"
+                    : "border-stage bg-stage text-cream"
+                  : redShell
+                    ? "border-white/25 bg-white/10 text-cream"
+                    : "border-border bg-card text-fg",
+              )}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </header>
 
-      <div className="pouya-glass-panel flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl">
+      <main
+        className={cn(
+          "mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col px-3 py-3 sm:px-4",
+          redShell ? "text-cream" : "",
+        )}
+      >
         {tab === "chat" ? (
           <ChatPane
             messages={messages}
@@ -606,12 +722,12 @@ export function PouyaMainApp() {
             mode={mode}
             listening={listening}
             scrollerRef={scrollerRef}
-            onSend={(t, att) => void send(t, "chat", undefined, att)}
+            onSend={(t, att) => void send(t, mode === "lesson" || mode === "daily" ? mode : "chat", undefined, att)}
             onLesson={(t) => void send(`درس بده درباره ${t}`, "lesson")}
             onDaily={() => void send("یک موضوع آموزشی روزانه بگو", "daily")}
             onFact={() => void send("یک دانستنی علمی کوتاه بگو", "chat")}
             onMic={() => toggleMic("chat")}
-            onLivePractice={() => setTab("live")}
+            onLivePractice={openLivePractice}
             onNew={newChat}
             onSave={() => saveLast()}
             onVoiceCall={() => void openVoiceCall()}
@@ -646,35 +762,39 @@ export function PouyaMainApp() {
             onVoiceCall={() => void openVoiceCall()}
           />
         ) : null}
-        {tab === "quiz" ? <QuizPane level={level} /> : null}
-        {tab === "vault" ? <VaultPane /> : null}
         {tab === "coaches" ? (
           <CoachesPane
             activeId={assistantId}
-            onSelect={(a: Assistant) => setAssistantId(a.id)}
-            onStart={(a: Assistant) => {
+            onSelect={(a) => setAssistantId(a.id)}
+            onStart={(a) => {
               setAssistantId(a.id);
               setTab("chat");
               setMode("chat");
               void send(a.starter || `سلام، من می‌خواهم با مربی ${a.label} کار کنم.`, "chat");
             }}
-            onAskLesson={(prompt: string) => {
+            onAskLesson={(prompt) => {
               setTab("chat");
               setMode("lesson");
               void send(prompt, "lesson");
             }}
           />
         ) : null}
+        {tab === "quiz" ? <QuizPane level={level} setMood={setMood} /> : null}
+        {tab === "vault" ? <VaultPane /> : null}
         {tab === "account" ? <AccountPane /> : null}
-      </div>
+      </main>
 
       {voiceCall ? (
         <PouyaVoiceCall
-          open={voiceCall}
           phase={voicePhase}
           muted={callMuted}
+          draft={draft}
+          setDraft={setDraft}
+          lastUser={[...messages].reverse().find((m) => m.role === "user")?.content}
+          lastAssistant={[...messages].reverse().find((m) => m.role === "assistant")?.content}
           onClose={closeVoiceCall}
           onToggleMute={toggleCallMute}
+          onSendText={(t) => void sendVoice(t)}
         />
       ) : null}
     </div>
