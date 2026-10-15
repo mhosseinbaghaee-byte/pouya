@@ -3,7 +3,7 @@
  * اولویت: اطلس محلی جغرافیا → تصویر ویکی‌مدیا → SVG داخلی
  */
 
-import { matchGeoAtlas, type GeoAtlasMap } from "./geo-atlas";
+import { GEO_ATLAS_MAPS, matchGeoAtlas, type GeoAtlasMap } from "./geo-atlas";
 
 export type LessonDiagram = {
   id: string;
@@ -270,12 +270,8 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
 export function diagramById(id: string): LessonDiagram | undefined {
   if (id.startsWith("atlas-")) {
     const geoId = id.slice("atlas-".length);
-    const m = matchGeoAtlas(geoId) || matchGeoAtlas(geoId.replace(/-/g, " "));
-    // lookup by id field in catalog
-    const { GEO_ATLAS_MAPS } = require("./geo-atlas") as typeof import("./geo-atlas");
     const found = GEO_ATLAS_MAPS.find((x) => x.id === geoId);
     if (found) return fromGeoAtlas(found);
-    if (m) return fromGeoAtlas(m);
   }
   return LESSON_DIAGRAMS.find((d) => d.id === id);
 }
@@ -316,7 +312,6 @@ export function matchDiagram(text: string): LessonDiagram | null {
       best = d;
     }
   }
-  // حداقل امتیاز ۲ تا جملات عادی شکل نگیرند
   return score >= 2 ? best : null;
 }
 
