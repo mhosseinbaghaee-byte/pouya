@@ -1,7 +1,9 @@
 /**
  * بانک شکل‌های آموزشی پویا
- * اولویت: تصویر رنگی ویکی‌مدیا کامنز + ذکر منبع؛ در نبود تصویر → SVG داخلی
+ * اولویت: اطلس محلی جغرافیا → تصویر ویکی‌مدیا → SVG داخلی
  */
+
+import { matchGeoAtlas, type GeoAtlasMap } from "./geo-atlas";
 
 export type LessonDiagram = {
   id: string;
@@ -17,6 +19,19 @@ export type LessonDiagram = {
 
 const WM = (file: string, width = 700) =>
   `https://commons.wikimedia.org/wiki/Special:FilePath/${file}?width=${width}`;
+
+function fromGeoAtlas(m: GeoAtlasMap): LessonDiagram {
+  return {
+    id: `atlas-${m.id}`,
+    title: m.title,
+    subject: "جغرافیا",
+    grades: "چهارم تا دوازدهم",
+    keywords: m.keywords,
+    caption: m.caption,
+    imageUrl: m.imageUrl,
+    attribution: "اطلس جغرافیای فارسی — بانک پویا",
+  };
+}
 
 export const LESSON_DIAGRAMS: LessonDiagram[] = [
   {
@@ -139,8 +154,8 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
       "قاره", "اقیانوس", "جغرافیا نقشه", "world map", "شکل نقشه",
     ],
     caption: "نقشه جهان برای شناخت قاره‌ها و اقیانوس‌ها.",
-    imageUrl: WM("World_map_blank_without_borders.svg", 900),
-    attribution: "ویکی‌مدیا کامنز — نقشه جهان",
+    imageUrl: "/atlas/world-political.jpg",
+    attribution: "اطلس جغرافیای فارسی — بانک پویا",
   },
   {
     id: "photosynthesis",
@@ -253,6 +268,15 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
 ];
 
 export function diagramById(id: string): LessonDiagram | undefined {
+  if (id.startsWith("atlas-")) {
+    const geoId = id.slice("atlas-".length);
+    const m = matchGeoAtlas(geoId) || matchGeoAtlas(geoId.replace(/-/g, " "));
+    // lookup by id field in catalog
+    const { GEO_ATLAS_MAPS } = require("./geo-atlas") as typeof import("./geo-atlas");
+    const found = GEO_ATLAS_MAPS.find((x) => x.id === geoId);
+    if (found) return fromGeoAtlas(found);
+    if (m) return fromGeoAtlas(m);
+  }
   return LESSON_DIAGRAMS.find((d) => d.id === id);
 }
 
@@ -268,6 +292,10 @@ function norm(s: string) {
 
 /** مرز کلمه — «موج» داخل «موجودی» و «مدار» داخل «مدارس» نباید بخورد */
 export function matchDiagram(text: string): LessonDiagram | null {
+  // اولویت ۱: اطلس جغرافیای فارسی
+  const geo = matchGeoAtlas(text);
+  if (geo) return fromGeoAtlas(geo);
+
   const t = norm(text);
   if (t.length < 2) return null;
   let best: LessonDiagram | null = null;
