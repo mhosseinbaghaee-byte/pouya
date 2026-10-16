@@ -8,7 +8,11 @@ const WM_SPECIAL = "https://commons.wikimedia.org/wiki/Special:FilePath/";
 
 function isAllowedImageUrl(url: string): boolean {
   const u = url.trim();
-  return u.startsWith(WM_UPLOAD) || u.startsWith(WM_SPECIAL);
+  // بانک اطلس محلی پویا + شکل‌های public
+  if (u.startsWith("/atlas/") || u.startsWith("/pouya/") || u.startsWith("/images/")) return true;
+  // ویکی‌مدیا
+  if (u.startsWith(WM_UPLOAD) || u.startsWith(WM_SPECIAL)) return true;
+  return false;
 }
 
 function ZoomableImage({
@@ -79,11 +83,11 @@ function ZoomableImage({
                 بستن
               </button>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-white p-3">
+            <div className="flex flex-1 items-center justify-center overflow-auto bg-black/5 p-2">
               <img
                 src={src}
                 alt={alt}
-                className="max-h-[80dvh] w-auto max-w-full object-contain"
+                className="max-h-[85dvh] w-auto max-w-full object-contain"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -94,247 +98,97 @@ function ZoomableImage({
   );
 }
 
-function ShapeSvg({ kind }: { kind: string }) {
-  const k = kind.trim().toLowerCase();
-  const common = { width: 160, height: 120, className: "my-2 rounded-lg border border-border/40 bg-white" } as const;
-  if (k === "circle" || k === "دایره") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="دایره">
-        <circle cx="80" cy="60" r="42" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "square" || k === "مربع") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="مربع">
-        <rect x="40" y="20" width="80" height="80" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "rectangle" || k === "مستطیل") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="مستطیل">
-        <rect x="25" y="30" width="110" height="60" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "triangle" || k === "مثلث") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="مثلث">
-        <polygon points="80,18 140,100 20,100" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "rhombus" || k === "diamond" || k === "لوزی") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="لوزی">
-        <polygon points="80,12 140,60 80,108 20,60" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "parallelogram" || k === "متوازی‌الاضلاع" || k === "متوازی الاضلاع") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="متوازی‌الاضلاع">
-        <polygon points="40,25 140,25 120,95 20,95" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "trapezoid" || k === "ذوزنقه") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="ذوزنقه">
-        <polygon points="45,25 115,25 140,95 20,95" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "pentagon" || k === "پنج‌ضلعی" || k === "پنج ضلعی") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="پنج‌ضلعی">
-        <polygon points="80,12 135,45 115,102 45,102 25,45" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  if (k === "hexagon" || k === "شش‌ضلعی" || k === "شش ضلعی") {
-    return (
-      <svg {...common} viewBox="0 0 160 120" aria-label="شش‌ضلعی">
-        <polygon points="50,18 110,18 140,60 110,102 50,102 20,60" fill="#fee2e2" stroke="#b91c1c" strokeWidth="3" />
-      </svg>
-    );
-  }
-  return null;
-}
-
-function DiagramBlock({ id }: { id: string }) {
-  const cleanId = id.trim().toLowerCase();
-  if (!cleanId) return null;
-  const meta = diagramById(cleanId);
-  const gallery = meta?.imageGallery?.filter((g) => g.url && isAllowedImageUrl(g.url)) || [];
-  const single = meta?.imageUrl && isAllowedImageUrl(meta.imageUrl) ? meta.imageUrl : undefined;
-  const [imgOk, setImgOk] = useState(Boolean(single || gallery.length));
-
-  // id ناشناخته بدون تصویر → هیچ قاب خالی
-  if (!meta && !single && gallery.length === 0) {
-    // هنوز ممکن است LessonDiagramSvg برای id شناخته‌شده SVG بدهد
-    // فقط اگر meta نباشد و تصویر نباشد، svg را امتحان کن
-  }
-
-  const hasImage = Boolean((single || gallery.length) && imgOk);
-  const showSvgFallback = !hasImage;
-
-  if (!meta && !hasImage) {
-    // id کاملاً نامعتبر
-    const known = Boolean(diagramById(cleanId));
-    if (!known) return null;
-  }
-
-  return (
-    <figure className="my-2 space-y-2">
-      {gallery.length > 0 && imgOk ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {gallery.map((g) => (
-            <div key={g.url} className="overflow-hidden rounded-xl border border-border/40 bg-white">
-              <ZoomableImage
-                src={g.url}
-                alt={g.label}
-                className="mx-auto max-h-48 w-full object-contain"
-                onError={() => setImgOk(false)}
-              />
-              <p className="border-t border-border/30 px-1 py-1 text-center text-[11px] text-fg-muted">{g.label}</p>
-            </div>
-          ))}
-        </div>
-      ) : single && imgOk ? (
-        <div className="overflow-hidden rounded-xl border border-border/40 bg-white">
-          <ZoomableImage
-            src={single}
-            alt={meta?.title || cleanId}
-            className="mx-auto max-h-72 w-auto max-w-full object-contain sm:max-h-96"
-            onError={() => setImgOk(false)}
-          />
-        </div>
-      ) : showSvgFallback && meta ? (
-        <LessonDiagramSvg id={cleanId} />
-      ) : null}
-      {meta?.caption ? (
-        <figcaption className="text-center text-[11px] text-muted">{meta.caption}</figcaption>
-      ) : null}
-      {meta?.attribution && imgOk ? (
-        <figcaption className="text-center text-[10px] text-fg-subtle">{meta.attribution}</figcaption>
-      ) : null}
-    </figure>
-  );
-}
-
-/**
- * فرمت درون‌خطی:
- * - **bold** و `code` مثل قبل
- * - *italic* فقط برای متن واقعی — نه 3*4*5
- */
 function inlineFormat(text: string): ReactNode[] {
-  // اول **bold** و `code` را جدا کن؛ برای *italic* از الگوی محافظه‌کارانه استفاده کن
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (!part) return null;
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) {
       return (
-        <strong key={i} className="font-medium text-fg">
-          {part.slice(2, -2)}
+        <strong key={i} className="font-semibold">
+          {p.slice(2, -2)}
         </strong>
       );
     }
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+    if (p.startsWith("*") && p.endsWith("*") && p.length > 2) {
       return (
-        <code key={i} className="rounded-xs bg-surface px-1 py-0.5 font-mono text-[0.85em]">
-          {part.slice(1, -1)}
+        <em key={i} className="italic text-fg-muted">
+          {p.slice(1, -1)}
+        </em>
+      );
+    }
+    if (p.startsWith("`") && p.endsWith("`")) {
+      return (
+        <code key={i} className="rounded bg-black/5 px-1 text-[0.9em]">
+          {p.slice(1, -1)}
         </code>
       );
     }
-    // italic: فقط *کلمه* با فاصله اطراف یا ابتدای رشته — نه ضرب
-    const italicParts = part.split(/(?:^|(?<=\s))\*([^*\n]+?)\*(?=\s|$)/g);
-    if (italicParts.length === 1) {
-      return <Fragment key={i}>{part}</Fragment>;
-    }
-    return (
-      <Fragment key={i}>
-        {italicParts.map((seg, j) => {
-          // بخش‌های فرد = محتوای italic (گروه capture)
-          if (j % 2 === 1) {
-            if (/^[\d.\s+\-*/×÷^()]+$/.test(seg)) return <Fragment key={j}>*{seg}*</Fragment>;
-            return (
-              <em key={j} className="italic">
-                {seg}
-              </em>
-            );
-          }
-          return <Fragment key={j}>{seg}</Fragment>;
-        })}
-      </Fragment>
-    );
+    return <Fragment key={i}>{p}</Fragment>;
   });
 }
 
-const DIAGRAM_RE = /\[diagram:([^\]]*)\]/i;
-const GRAPH_RE = /\[graph:([^\]]+)\]/i;
-const SHAPE_RE = /\[shape:[^\]]+\]|```shape:[^`]+```/i;
+function ShapeSvg({ kind }: { kind: string }) {
+  return <LessonDiagramSvg kind={kind} />;
+}
+
+function DiagramBlock({ id }: { id: string }) {
+  const meta = diagramById(id);
+  const gallery = meta?.imageGallery?.filter((g) => g.url && isAllowedImageUrl(g.url)) || [];
+  const single = meta?.imageUrl && isAllowedImageUrl(meta.imageUrl) ? meta.imageUrl : undefined;
+
+  if (!meta) {
+    return (
+      <div className="my-2 rounded-xl border border-border/40 bg-white/60 p-3 text-sm text-fg-muted">
+        شکل «{id}» در بانک پیدا نشد.
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-2 space-y-2 rounded-xl border border-border/40 bg-white/70 p-3">
+      <p className="text-sm font-medium text-ink">{meta.title}</p>
+      {gallery.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {gallery.map((g, i) => (
+            <div key={i} className="min-w-[8rem] flex-1">
+              <ZoomableImage
+                src={g.url}
+                alt={g.label || meta.title}
+                className="max-h-40 w-full rounded-lg object-contain"
+              />
+              {g.label ? <p className="mt-0.5 text-center text-[11px] text-fg-subtle">{g.label}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : single ? (
+        <ZoomableImage
+          src={single}
+          alt={meta.title}
+          className="max-h-52 w-auto max-w-full rounded-lg object-contain"
+        />
+      ) : (
+        <LessonDiagramSvg kind={id} />
+      )}
+      {meta.caption ? <p className="text-xs leading-relaxed text-fg-muted">{meta.caption}</p> : null}
+      {meta.attribution ? (
+        <p className="text-[10px] text-fg-subtle">{meta.attribution}</p>
+      ) : null}
+    </div>
+  );
+}
 
 export function RichText({ text }: { text: string }) {
-  // تگ‌های ناقص ویکی و diagram خالی (D5 + I2)
-  const cleaned = text
-    .replace(/\[wiki:[^\n\]]{0,200}$/gi, "")
-    .replace(/\[wiki:\s*\]/gi, "")
-    .replace(/\[diagram:\s*\]/gi, "")
-    .replace(/\[graph:\s*\]/gi, "")
-    .replace(/\[wiki:[^\]]{0,200}(?!\])/gi, ""); // تگ باز وسط متن بدون ]
+  if (!text?.trim()) return null;
 
-  const blocks = cleaned.split(/\n{2,}/);
+  const blocks = text.split(/\n{2,}/);
+
   return (
     <div className="space-y-2 text-pretty">
       {blocks.map((block, bi) => {
-        const diagramOnly = block.match(/^\s*\[diagram:([^\]]*)\]\s*$/i);
-        if (diagramOnly) {
-          const id = diagramOnly[1].trim();
-          if (!id) return null;
-          return (
-            <div key={bi}>
-              <DiagramBlock id={id} />
-            </div>
-          );
-        }
+        const trimmed = block.trim();
+        if (!trimmed) return null;
 
-        const shapeMatch =
-          block.match(/^\s*```shape:([^\n`]+)```\s*$/i) || block.match(/^\s*\[shape:([^\]]+)\]\s*$/i);
-        if (shapeMatch) {
-          const svg = <ShapeSvg kind={shapeMatch[1]} />;
-          if (svg) return <div key={bi}>{svg}</div>;
-          return null;
-        }
-
-        const graphMatch = block.match(/^\s*\[graph:([^\]]+)\]\s*$/i);
-        if (graphMatch) {
-          return (
-            <div key={bi}>
-              <FunctionGraph expr={graphMatch[1]} />
-            </div>
-          );
-        }
-
-        const headingMatch = block.match(/^\s*(#{1,3})\s+(.+)$/);
-        if (headingMatch && !block.includes("\n")) {
-          const level = headingMatch[1].length;
-          const cls =
-            level === 1
-              ? "text-lg font-bold text-fg"
-              : level === 2
-                ? "text-base font-semibold text-fg"
-                : "text-sm font-semibold text-fg";
-          return (
-            <p key={bi} className={cls}>
-              {inlineFormat(headingMatch[2])}
-            </p>
-          );
-        }
-
-        if (DIAGRAM_RE.test(block) || SHAPE_RE.test(block) || GRAPH_RE.test(block)) {
-          const pieces = block.split(/(\[diagram:[^\]]*\]|\[shape:[^\]]+\]|\[graph:[^\]]+\]|```shape:[^`]+```)/gi);
+        if (/\[diagram:[^\]]+\]|\[graph:[^\]]+\]|\[shape:[^\]]+\]|```shape:[^`]+```/.test(block)) {
+          const pieces = block.split(/(\[diagram:[^\]]+\]|\[graph:[^\]]+\]|\[shape:[^\]]+\]|```shape:[^`]+```)/g);
           return (
             <div key={bi} className="space-y-1">
               {pieces.map((p, pi) => {
