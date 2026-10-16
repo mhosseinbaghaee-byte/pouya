@@ -151,7 +151,7 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     grades: "چهارم تا نهم",
     keywords: [
       "نقشه جهان", "نقشه زمین", "نقشه کره", "نقشه کره زمین", "کره زمین",
-      "قاره", "اقیانوس", "جغرافیا نقشه", "world map", "شکل نقشه",
+      "world map", "نقشه دنیا", "نقشه کل جهان",
     ],
     caption: "نقشه جهان برای شناخت قاره‌ها و اقیانوس‌ها.",
     imageUrl: "/atlas/world-political.jpg",
