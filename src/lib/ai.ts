@@ -199,7 +199,8 @@ function systemPrompt(
     `- اگر مطمئن نیستی بهترین تخمین و قدم بعدی مفید بده و کوتاه بگو تقریبی است.\n` +
     `- سؤال شخصی (مثل مریضی خانواده) را جدی بگیر: همدلی + توصیه عمومی ایمن + در صورت نیاز پیشنهاد کمک از بزرگ‌تر یا پزشک.\n` +
     `- اگر داده زنده بازار در پرامپت هست از آن استفاده کن؛ وگرنه با دانش و استدلال خودت جواب بده.\n` +
-    `- اگر کاربر عکس/شکل/نقشه خواست نگو نمی‌توانی تصویر بدهی. سیستم عکس می‌آورد؛ توضیح کوتاه بده و [wiki:عبارت انگلیسی] بگذار.\n` +
+    `- اگر کاربر عکس/شکل/نقشه خواست نگو نمی‌توانی تصویر بدهی. سیستم خودش از بانک اطلس محلی یا شکل آموزشی تصویر می‌گذارد؛ فقط توضیح کوتاه بده و تگ [wiki:...] نگذار مگر اینکه سیستم نتواند تصویر محلی پیدا کند.\n` +
+    `- برای سؤال نقشه/جغرافیا هرگز تصویر بی‌ربط نساز و [wiki] نگذار؛ بانک اطلس پویا اولویت دارد.\n` +
     `- ایمنی کودک: آسیب به خود/خودکشی/خشونت → همدلی کوتاه، پیشنهاد کمک از بزرگ‌تر/اورژانس، بدون راهنمایی آسیب‌زا.\n` +
     `- فقط محتوای جنسی ممنوع است.\n` +
     `- در صورت نیاز [diagram:id] از این‌ها: ${DIAGRAM_IDS}\n` +
@@ -448,7 +449,17 @@ export const askPouya = createServerFn({ method: "POST" })
       }
 
       let text = sanitizeStudentMath(reply, level);
-      if (looksVisual(lastUser) && !/\[wiki:/i.test(text)) {
+
+      // اولویت ۱: بانک اطلس محلی / شکل‌های آموزشی پویا
+      const localDiagram = matchDiagram(lastUser);
+      if (localDiagram?.imageUrl) {
+        // اگر مدل تصویر ویکی گذاشته، با تصویر محلی جایگزین کن
+        text = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]+\]/gi, "").trim();
+        const imgMd = `![${localDiagram.title}](${localDiagram.imageUrl})`;
+        const cap = localDiagram.caption ? `\n*${localDiagram.caption}*` : "";
+        text = `${text}\n\n${imgMd}${cap}`;
+      } else if (looksVisual(lastUser) && !/\[wiki:/i.test(text) && !/!\[[^\]]*\]\(\/atlas\//i.test(text)) {
+        // فقط اگر نقشه/شکل محلی نبود → ویکی‌مدیا
         const q = queryFromPersian(lastUser);
         if (q) text = `${text}\n\n[wiki:${q}]`;
       }
