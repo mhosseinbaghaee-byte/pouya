@@ -62,6 +62,46 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     imageUrl: "/atlas/world-political.jpg",
     attribution: "اطلس جغرافیای فارسی — بانک پویا",
   },
+  {
+    id: "photosynthesis",
+    title: "فتوسنتز",
+    subject: "علوم / زیست",
+    grades: "ششم تا دهم",
+    keywords: ["فتوسنتز", "کلروفیل", "غذاسازی گیاه", "photosynthesis"],
+    caption: "نور + آب + CO₂ → قند + اکسیژن (در کلروپلاست).",
+    imageUrl: WM("Photosynthesis_equation.svg", 700),
+    attribution: "ویکی‌مدیا کامنز — معادله فتوسنتز",
+  },
+  {
+    id: "heart",
+    title: "قلب انسان (چهار حفره)",
+    subject: "زیست‌شناسی",
+    grades: "هشتم / دهم",
+    keywords: ["قلب", "شکل قلب", "ساختار قلب", "دهلیز", "بطن", "گردش خون", "قلب انسان", "heart"],
+    caption: "دو دهلیز بالا و دو بطن پایین؛ خون را در بدن به گردش درمی‌آورد.",
+    imageUrl: WM("Heart_diagram_blood_flow_en.svg", 900),
+    attribution: "ویکی‌مدیا کامنز — نمودار قلب و جریان خون",
+  },
+  {
+    id: "water_cycle",
+    title: "چرخه آب",
+    subject: "علوم",
+    grades: "چهارم تا هفتم",
+    keywords: ["چرخه آب", "تبخیر", "بارش", "میعان"],
+    caption: "تبخیر → میعان → بارش → جریان روی زمین.",
+    imageUrl: WM("Water_cycle.svg", 700),
+    attribution: "ویکی‌مدیا کامنز — چرخه آب",
+  },
+  {
+    id: "periodic_table",
+    title: "جدول تناوبی (مندلیف)",
+    subject: "شیمی",
+    grades: "هشتم تا دوازدهم",
+    keywords: ["جدول مندلیف", "جدول تناوبی", "جدول تناوبی عناصر", "جدول عناصر", "periodic table", "مندلیف"],
+    caption: "عناصر بر اساس عدد اتمی در دوره‌ها و گروه‌ها چیده شده‌اند.",
+    imageUrl: WM("Periodic_table_large.svg", 960),
+    attribution: "ویکی‌مدیا کامنز — جدول تناوبی",
+  },
 ];
 
 export function diagramById(id: string): LessonDiagram | undefined {
@@ -83,7 +123,6 @@ function norm(s: string) {
     .trim();
 }
 
-/** اولویت ۱: اطلس جغرافیای فارسی */
 export function matchDiagram(text: string): LessonDiagram | null {
   const geo = matchGeoAtlas(text);
   if (geo) return fromGeoAtlas(geo);
