@@ -290,7 +290,7 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
         continue;
       }
       const json = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } };
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
       const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
       if (text.trim()) return text.trim();
