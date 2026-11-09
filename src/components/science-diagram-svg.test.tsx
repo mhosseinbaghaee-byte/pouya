@@ -32,5 +32,5 @@ test("reflection diagram has a horizontal mirror and vertical normal", () => {
 test("atom diagram labels its four-nucleon nucleus as helium-4", () => {
   const markup = render("atom-structure");
   assert.match(markup, /هلیم-۴/);
-  assert.match(markup, /۲ پروتون + ۲ نوترون/);
+  assert.ok(markup.includes("۲ پروتون + ۲ نوترون"));
 });
