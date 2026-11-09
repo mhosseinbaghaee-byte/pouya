@@ -1,5 +1,7 @@
 /** SVGهای آموزشی بانک شکل — اصلی، نه اسکن کتاب */
 
+import { ScienceDiagramSvg } from "./science-diagram-svg";
+
 const frame = {
   width: "100%",
   height: 200,
@@ -9,6 +11,7 @@ const frame = {
 
 export function LessonDiagramSvg({ id }: { id: string }) {
   const k = id.trim().toLowerCase();
+  if (["atom-structure","water-molecule","co2-molecule","ionic-bond","covalent-bond","reaction-water","ph-scale","states-of-matter","light-reflection","refraction","magnetic-field"].includes(k)) return <ScienceDiagramSvg id={k} />;
 
   if (k === "neuron") {
     return (
