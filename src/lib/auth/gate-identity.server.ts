@@ -27,8 +27,13 @@ function env(key: string): string | undefined {
 }
 
 export function gateIdentityEnabled(): boolean {
+  return env("VITE_AUTH_ENABLED") !== "false" && Boolean(env("GROK_PROJECT_ID"));
+}
+
+/** Gate JWTs can be verified without a DB; issuing persistent sessions cannot. */
+export function gateIdentitySessionsEnabled(): boolean {
   const databaseReady = process.env.VERCEL !== "1" || Boolean(env("DATABASE_URL"));
-  return databaseReady && env("VITE_AUTH_ENABLED") !== "false" && Boolean(env("GROK_PROJECT_ID"));
+  return databaseReady && gateIdentityEnabled();
 }
 
 async function defaultJwksFetch(url: string): Promise<GateJwks | null> {
