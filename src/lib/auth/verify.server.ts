@@ -57,6 +57,9 @@ export type VerifiedUser = { id: string; email: string | null };
 export async function getSessionUser(
   bearerToken?: string,
 ): Promise<VerifiedUser | null> {
+  // Serverless deployments without DATABASE_URL cannot persist Better Auth
+  // sessions, so never treat an in-memory session as an authenticated user.
+  if (process.env.VERCEL === "1" && !databaseConfigured) return null;
   if (!authConfigured && !gateIdentityEnabled()) return null;
   const request = getRequest();
   if (!request) return null;
@@ -82,6 +85,9 @@ export async function getSessionUser(
  * - Auth disabled + no database -> the shared dev user id.
  */
 export async function requireUserId(bearerToken?: string): Promise<string> {
+  if (process.env.VERCEL === "1" && !databaseConfigured) {
+    throw new UnauthorizedError();
+  }
   if (!authConfigured && !gateIdentityEnabled()) {
     // Never let deployed visitors share the preview-only dev identity.
     if (process.env.VERCEL === "1" && !databaseConfigured) {
