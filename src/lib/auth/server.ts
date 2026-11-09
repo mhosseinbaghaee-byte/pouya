@@ -48,7 +48,7 @@ import {
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
-void ensureDbReady();
+void ensureDbReady().catch((err) => {\n  console.error("[auth] database bootstrap unavailable:", err);\n});
 
 /**
  * Preview secret must outlive module reloads: PGLite (and its session rows) is
@@ -72,7 +72,10 @@ const env = (key: string): string | undefined => {
 
 // Explicit off-switch. The deployer sets `VITE_AUTH_ENABLED=true` when it
 // provisions auth; set it to "false" to force auth off everywhere (dev user).
-const authDisabled = env("VITE_AUTH_ENABLED") === "false";
+const databaseUrl = env("DATABASE_URL");
+const isVercelRuntime = process.env.VERCEL === "1";
+const authDisabled =
+  env("VITE_AUTH_ENABLED") === "false" || (isVercelRuntime && !databaseUrl);
 
 // Broker federation creds: the deployer injects a per-app client when deployed;
 // otherwise fall back to the shared live-preview client, which the broker accepts
