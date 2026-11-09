@@ -32,11 +32,11 @@
 ```
 سؤال کاربر
     │
-    ├─۱─ مغز یادگیرنده (pouya-brain)  → اگر قبلاً یاد گرفته، رایگان
-    ├─۲─ بانک ثابت (bank-first)       → سلام / درس خیلی کوتاه
-    ├─۳─ Gemini (رایگان)              → فهم و جواب هوشمند
-    ├─۴─ لیارا / OpenAI-compatible    → اگر Gemini قطع بود
-    └─۵─ پاسخ محلی (library-reply)    → آخرین امید
+    ├─۱─ مغز محلی (pouya-brain)       → فقط در حافظه همان نمونه سرور
+    ├─۲─ بانک ثابت (bank-first)       → سلام و تأییدهای کوتاه
+    ├─۳─ Gemini                       → فهم و پاسخ هوشمند
+    ├─۴─ ارائه‌دهنده اختیاری          → فقط اگر صریحاً تنظیم شده باشد
+    └─۵─ پاسخ محلی (library-reply)    → مسیر جایگزین بدون API
          │
          └─ تصویر: بانک شکل → ویکی‌مدیا اینترنت
               └─ جواب خوب مدل در مغز ذخیره می‌شود (دفعه بعد رایگان‌تر)
@@ -89,15 +89,20 @@ docs/
 | کلید | نقش |
 |------|-----|
 | `GEMINI_API_KEY` | Gemini (اولویت اول چت) |
-| `GEMINI_MODELS` | اختیاری — مثلاً `gemini-2.0-flash,gemini-2.5-flash,gemini-1.5-flash` |
-| `AI_PROVIDER_ORDER` | پیشنهاد: `gemini,openai` |
+| `GEMINI_MODELS` | اختیاری — `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.7-flash` |
+| `AI_PROVIDER_ORDER` | اگر فقط کلید رایگان گوگل داری: `gemini` |
 | `OPENAI_API_KEY` | کلید لیارا / OpenAI-compatible |
 | `OPENAI_BASE_URL` | آدرس API لیارا |
 | `OPENAI_MODEL` | مدل لیارا (مثلاً `gpt-4o-mini`) |
 | `OPENAI_TTS_KEY` | کلید TTS (مکالمه صوتی) |
 | `OPENAI_TTS_MODEL` / `OPENAI_TTS_VOICE` | اختیاری — پیش‌فرض `tts-1` / `echo` |
+| `DATABASE_URL` | برای حافظه مشترک و نشست‌های پایدار؛ در Vercel باید به DB پایدار مثل Neon وصل شود |
+| `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` | اعتبارنامه OAuth اختصاصی برنامه؛ بدون آن ورود OAuth فعال نمی‌شود |
+| `BETTER_AUTH_URL` | آدرس پایه احراز هویت در محیط Production |
 
 کلیدها فقط در پنل Vercel (یا `.env` محلی غیرکامیت).
+
+**مهم برای Vercel:** اگر `DATABASE_URL` تنظیم نشده باشد، PGLite عمداً در محیط سرورلس اجرا نمی‌شود؛ حافظه مشترک و نشست‌های ورود غیرفعال می‌مانند تا خطای فایل موقت یا نشست ناپایدار ایجاد نشود. برای فعال‌شدن این دو بخش، ابتدا DB پایدار و سپس اعتبارنامه OAuth اختصاصی را تنظیم کن.
 
 ---
 
@@ -125,7 +130,7 @@ npm run dev
 ## وضعیت و بدهی فنی
 
 - حساب مربی/دانش‌آموز: معماری در `docs/phase-a-roles.md` — پیاده‌سازی کامل بعداً
-- مغز یادگیرنده: حافظه instance روی Vercel (warm)؛ پایدارسازی ابری در آینده
-- Auth / DB اسکلت در `src/lib/auth` و `app-data` — بخشی از اسکفولد
+- مغز یادگیرنده: حافظه محلی هر نمونه؛ حافظه مشترک فقط با `DATABASE_URL` پایدار
+- Auth / DB: بدون DB پایدار، ورود و نشست‌های Production عمداً fail-closed هستند
 
 جزئیات برای اعضای تیم: **`docs/TEAM-HANDOFF.md`**
