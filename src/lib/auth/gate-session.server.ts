@@ -8,7 +8,7 @@ import {
 import { handleOAuthUserInfo } from "better-auth/oauth2";
 import {
   GATE_IDENTITY_HEADER,
-  gateIdentityEnabled,
+  gateIdentitySessionsEnabled,
   gateIdentityFromHeaders,
   sessionBoundToGateIdentity,
 } from "./gate-identity.server";
@@ -156,7 +156,7 @@ export function gateIdentitySessions() {
         {
           matcher: (ctx: { path?: string }) => ctx.path === "/get-session",
           handler: createAuthMiddleware(async (ctx) => {
-            if (!gateIdentityEnabled()) return;
+            if (!gateIdentitySessionsEnabled()) return;
             const inbound = ctx.request?.headers ?? ctx.headers;
             if (!inbound) {
               console.error(`${LOG} no request headers on /get-session`);
