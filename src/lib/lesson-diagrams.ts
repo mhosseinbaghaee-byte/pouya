@@ -69,7 +69,7 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     grades: "ششم تا دهم",
     keywords: ["فتوسنتز", "کلروفیل", "غذاسازی گیاه", "photosynthesis"],
     caption: "نور + آب + CO₂ → قند + اکسیژن (در کلروپلاست).",
-    imageUrl: "/images/anatomy/03_muscular_system.png",
+    imageUrl: WM("Photosynthesis_equation.svg", 700),
     attribution: "ویکی‌مدیا کامنز — معادله فتوسنتز",
   },
   {
