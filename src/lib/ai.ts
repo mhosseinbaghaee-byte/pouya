@@ -49,7 +49,7 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 type ChatResult = { ok: true; text: string; provider?: string } | { ok: false; error: string };
 type ProviderId = "bank" | "openai" | "gemini";
 
-const DEFAULT_GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"];
+const DEFAULT_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash"];
 function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODELS;
   const list = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -194,9 +194,9 @@ function systemPrompt(
     `- مغز اصلی تو هوش مصنوعی است: هر چیزی که بچه بپرسد خودت بفهم و جواب بده. منتظر کلیدواژه یا لیست موضوع نباش.\n` +
     `- مستقیم و طبیعی جواب بده؛ مثل معلم باهوش، نه ربات عذرخواه.\n` +
     `- همیشه کمک‌کننده و انسان‌وار جواب بده. اگر کاربر نگران، مریض، ناراحت یا کنجکاو است همدلی کوتاه و راهنمایی مفید بده.\n` +
-    `- هرگز نگو به اطلاعات زنده / به‌روز / اینترنت دسترسی نداری. این جمله‌ها ممنوع است.\n` +
-    `- هرگز نگو نمی‌دانم، پوشش نمی‌دهم، خارج از تخصصم است، فقط دانش قبلی دارم — مگر برای محتوای جنسی صریح.\n` +
-    `- اگر مطمئن نیستی بهترین تخمین و قدم بعدی مفید بده و کوتاه بگو تقریبی است.\n` +
+    `- درباره دسترسی زنده یا اینترنت ادعای نادرست نکن؛ فقط وقتی داده زنده در ورودی یا ابزار واقعاً موجود است به آن استناد کن.\n` +
+    `- اگر پاسخ را نمی‌دانی یا شواهد کافی نداری، صریح و کوتاه بگو مطمئن نیستی؛ حدس را به‌عنوان واقعیت بیان نکن.\n` +
+    `- اگر سؤال مبهم است یک سؤال روشن‌کننده بپرس؛ اگر چند تفسیر محتمل دارد، آن‌ها را از هم جدا کن.\n` +
     `- سؤال شخصی (مثل مریضی خانواده) را جدی بگیر: همدلی + توصیه عمومی ایمن + در صورت نیاز پیشنهاد کمک از بزرگ‌تر یا پزشک.\n` +
     `- اگر داده زنده بازار در پرامپت هست از آن استفاده کن؛ وگرنه با دانش و استدلال خودت جواب بده.\n` +
     `- اگر کاربر عکس/شکل/نقشه خواست نگو نمی‌توانی تصویر بدهی. سیستم خودش از بانک اطلس محلی یا شکل آموزشی تصویر می‌گذارد؛ فقط توضیح کوتاه بده و تگ [wiki:...] نگذار مگر اینکه سیستم نتواند تصویر محلی پیدا کند.\n` +
@@ -237,22 +237,26 @@ function providerOrder(): ProviderId[] {
   return list.length ? list : DEFAULT_ORDER;
 }
 
-function looksLikeLameRefusal(text: string): boolean {
-  const t = (text || "").trim();
-  if (!t) return true;
-  const low = t.replace(/\u200c/g, "");
-  if (/دسترسی\s*به\s*(اطلاعات|داده)/.test(low) && /(زنده|به\s*روز|اینترنت|لحظ)/.test(low)) return true;
-  if (/(نمی\s*توانم|نمیتوانم)/.test(low) && /(اطلاعات|داده\s*زنده|دسترسی|به\s*روز)/.test(low)) return true;
-  if (/فقط/.test(low) && /(دانش|اطلاعات)/.test(low) && /(قبلی|از\s*قبل|آموزش)/.test(low)) return true;
-  if (/(خارج\s*از\s*(تخصص|دامنه|محدوده)|پوشش\s*نمی|در\s*حیطه\s*من\s*نیست)/.test(low)) return true;
-  if (/(متاسفانه|متأسفانه)/.test(low) && /(نمی\s*توانم|نمیتوانم|دسترسی\s*ندارم)/.test(low)) return true;
-  if (/I (don't|do not|cannot|can't) (have|access|provide)/i.test(t) && /(real[- ]?time|up[- ]?to[- ]?date|live)/i.test(t))
-    return true;
-  if (/اتصال\s*مدل\s*کامل\s*در\s*دسترس\s*نیست/.test(low)) return true;
-  return false;
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 5_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function callGemini(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
+async function callGemini(
+  messages: ChatMsg[],
+  system: string,
+  image: string | undefined,
+  deadline: number,
+): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) {
     logAi("gemini_no_key");
@@ -275,18 +279,26 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
   }
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-      const res = await fetch(url, {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      const res = await fetchWithTimeout(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key,
+        },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents,
           generationConfig: { temperature: 0.6, maxOutputTokens: 2048 },
         }),
-      });
+      }, Math.min(5_000, remaining));
       if (!res.ok) {
         logAi("gemini_http", model, res.status);
+        // Invalid credentials are project-wide. Quota and availability can
+        // differ by model, so keep the bounded fallback chain for 429/5xx.
+        if ([401, 403].includes(res.status)) return null;
         continue;
       }
       const json = (await res.json()) as {
@@ -301,7 +313,12 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
   return null;
 }
 
-async function callOpenAI(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
+async function callOpenAI(
+  messages: ChatMsg[],
+  system: string,
+  image: string | undefined,
+  deadline: number,
+): Promise<string | null> {
   const key = process.env.OPENAI_API_KEY || process.env.LIARA_API_KEY;
   if (!key) return null;
   const base = (
@@ -330,11 +347,13 @@ async function callOpenAI(messages: ChatMsg[], system: string, image?: string): 
     msgs.push({ role: m.role, content: m.content });
   }
   try {
-    const res = await fetch(`${base}/chat/completions`, {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
+    const res = await fetchWithTimeout(`${base}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages: msgs, temperature: 0.6 }),
-    });
+    }, Math.min(5_000, remaining));
     if (!res.ok) {
       logAi("openai_http", res.status);
       return null;
@@ -350,16 +369,20 @@ async function callOpenAI(messages: ChatMsg[], system: string, image?: string): 
 
 /** اولویت اطلس محلی؛ فقط اگر نبود ویکی‌مدیا */
 async function attachVisuals(text: string, lastUser: string): Promise<string> {
-  let out = text;
+  // Never trust image URLs or [wiki:...] tags emitted by the model.
+  let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
   const localDiagram = matchDiagram(lastUser);
   if (localDiagram?.imageUrl) {
-    out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]+\]/gi, "").trim();
-    const imgMd = `![${localDiagram.title}](${localDiagram.imageUrl})`;
-    const cap = localDiagram.caption ? `\n*${localDiagram.caption}*` : "";
-    out = `${out}\n\n${imgMd}${cap}`;
-  } else if (looksVisual(lastUser) && !/\[wiki:/i.test(out) && !/!\[[^\]]*\]\(\/atlas\//i.test(out)) {
-    const q = queryFromPersian(lastUser);
-    if (q) out = `${out}\n\n[wiki:${q}]`;
+    const imgMd = "![" + localDiagram.title + "](" + localDiagram.imageUrl + ")";
+    const cap = localDiagram.caption ? "\n*" + localDiagram.caption + "*" : "";
+    out = out + "\n\n" + imgMd + cap;
+  } else if (looksVisual(lastUser)) {
+    // Geography images must come from a confidently matched local atlas entry.
+    // Do not send an unmatched map/place request to broad Wikimedia search.
+    const geographyVisual = /(نقشه|قاره|کشور|اقیانوس|دریا|رود|رودخانه|کوه|جزیره|مرز|استان|جغرافی|atlas|geograph|\bmap\b)/i.test(lastUser);
+    const q = geographyVisual ? null : queryFromPersian(lastUser);
+    // If the subject cannot be extracted confidently, answer in text only.
+    if (q) out = out + "\n\n[wiki:" + q + "]";
   }
   try {
     const resolved = await resolveWikiTags(out);
@@ -374,6 +397,7 @@ export const askPouya = createServerFn({ method: "POST" })
   .validator((input: unknown) => ChatInput.parse(input))
   .handler(async ({ data }): Promise<ChatResult> => {
     try {
+      const requestDeadline = Date.now() + 8_000;
       const level = data.level;
       const mode = data.mode as ChatMode;
       const messages = data.messages as ChatMsg[];
@@ -409,42 +433,17 @@ export const askPouya = createServerFn({ method: "POST" })
       for (const p of providerOrder()) {
         if (p === "bank") continue;
         if (p === "gemini") {
-          reply = await callGemini(messages, system, data.image);
+          reply = await callGemini(messages, system, data.image, requestDeadline);
           if (reply) {
             provider = "gemini";
             break;
           }
         }
         if (p === "openai") {
-          reply = await callOpenAI(messages, system, data.image);
+          reply = await callOpenAI(messages, system, data.image, requestDeadline);
           if (reply) {
             provider = "openai";
             break;
-          }
-        }
-      }
-
-      if (reply && looksLikeLameRefusal(reply)) {
-        logAi("refusal_retry", reply.slice(0, 120));
-        const force =
-          system +
-          "\n\nدستور فوری: جواب قبلی‌ات شبیه عذرخواهی ربات بود. دوباره فقط یک جواب مفید انسانی بنویس. هرگز نگو دسترسی به اطلاعات زنده نداری. مستقیم به نیاز کاربر پاسخ بده.";
-        for (const p of providerOrder()) {
-          if (p === "gemini") {
-            const retry = await callGemini(messages, force, data.image);
-            if (retry && !looksLikeLameRefusal(retry)) {
-              reply = retry;
-              provider = "gemini";
-              break;
-            }
-          }
-          if (p === "openai") {
-            const retry = await callOpenAI(messages, force, data.image);
-            if (retry && !looksLikeLameRefusal(retry)) {
-              reply = retry;
-              provider = "openai";
-              break;
-            }
           }
         }
       }

@@ -58,8 +58,11 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
 
 test("the auth schema ships outside the globbed directory", () => {
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
-  assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
+  // App migrations belong in the globbed root; only the Better Auth schema
+  // stays in auth/ until sign-in is explicitly provisioned.
+  assert.equal(readdirSync(migrationsDir).includes(AUTH_MIGRATION), false);
+  assert.ok(readdirSync(migrationsDir).includes("0002_pouya_shared_brain.sql"));
+  assert.ok(readdirSync(join(migrationsDir, "auth")).includes(AUTH_MIGRATION));
 });
 
 test("this workspace's auth schema copy is byte-identical to its source", () => {

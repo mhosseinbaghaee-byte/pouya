@@ -1,7 +1,7 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 
 /** Which database backend is active. */
-export type DbSource = "neon" | "pglite";
+export type DbSource = "neon" | "pglite" | "unavailable";
 
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
@@ -16,7 +16,17 @@ const databaseUrl =
  * the app has a working database even with nothing configured — the live preview
  * included. Swap in Neon later by just setting `DATABASE_URL`; no code changes.
  */
-export const dbSource: DbSource = databaseUrl ? "neon" : "pglite";
+const isVercelRuntime = typeof process !== "undefined" && process.env.VERCEL === "1";
+
+// PGLite is a local/preview fallback only. Vercel's serverless filesystem is
+// ephemeral, and its bundler must explicitly package PGlite's WASM data files.
+// Until a durable DATABASE_URL is configured, disable DB-backed features rather
+// than booting a broken embedded database on every function instance.
+export const dbSource: DbSource = databaseUrl
+  ? "neon"
+  : isVercelRuntime
+    ? "unavailable"
+    : "pglite";
 
 /**
  * Minimal shared SQL surface, satisfied by both Neon and PGLite. Both the
@@ -176,6 +186,12 @@ async function createSql(): Promise<Sql> {
         "or a server route loader, never from client code.",
     );
   }
+  if (dbSource === "unavailable") {
+    throw new Error(
+      "DATABASE_URL is required for persistent database features on Vercel. " +
+        "PGLite is intentionally disabled in serverless deployments.",
+    );
+  }
   return dbSource === "neon" ? createNeonSql() : createPgliteSql();
 }
 
@@ -201,7 +217,9 @@ export function getSql(): Promise<Sql> {
  */
 export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite> {
   if (dbSource !== "pglite") {
-    throw new Error("getPglite() is only available on the PGLite fallback (no DATABASE_URL)");
+    throw new Error(
+      "getPglite() is only available in local development without DATABASE_URL.",
+    );
   }
   await getSql();
   const pg = await globalRef.__pgliteInstance__;
@@ -212,9 +230,9 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
 /**
  * Finish DB bootstrap before the server handles traffic.
  *
- * - **PGLite** (preview / no `DATABASE_URL`): open the in-memory DB and apply
+ * - **PGLite** (local development / no `DATABASE_URL`): open the in-memory DB and apply
  *   `migrations/*.sql`. Idempotent — concurrent callers share one promise.
- * - **Neon**: no-op (pool is created lazily on first query).
+ * - **Neon / unavailable Vercel DB**: no-op (Neon pool is created lazily on first query).
  *
  * Vite `configureServer` awaits this at dev startup; production imports of this
  * module kick it off immediately (see bottom of file).

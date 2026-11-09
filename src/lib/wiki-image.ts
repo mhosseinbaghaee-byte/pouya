@@ -15,6 +15,28 @@ const UPLOAD = "https://upload.wikimedia.org/";
 const cache = new Map<string, { at: number; v: WikiImage | null }>();
 const TTL_MS = 6 * 60 * 60 * 1000;
 
+const SEARCH_STOP = new Set(["anatomy", "diagram", "illustration", "image", "photo", "picture", "map", "location", "human", "the", "of", "and", "system", "structure", "تصویر", "عکس", "شکل", "نمودار", "ساختار", "انسان", "دستگاه"]);
+
+function relevanceTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&[a-z#0-9]+;/gi, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 2 && !SEARCH_STOP.has(x));
+}
+
+function isRelevantImage(query: string, title: string, categories = ""): boolean {
+  const wanted = relevanceTokens(query);
+  if (!wanted.length) return false;
+  const haystack = relevanceTokens([title, categories].join(" "));
+  return wanted.some((token) => haystack.some((candidate) =>
+    candidate === token || candidate.startsWith(token) || token.startsWith(candidate)
+  ));
+}
+
 async function getJson<T>(url: string, ms: number): Promise<T | null> {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
@@ -87,6 +109,7 @@ async function commonsImage(q: string): Promise<WikiImage | null> {
     const license = stripHtml(meta.LicenseShortName?.value || "");
     if (!license) continue;
     if (EN_BLOCK.test(meta.Categories?.value || "")) continue;
+    if (!isRelevantImage(q, name, meta.Categories?.value || "")) continue;
     const artist = cleanLabel(stripHtml(meta.Artist?.value || ""), 40);
     return {
       url: safeUrl(thumb),
@@ -118,6 +141,7 @@ async function faWikiImage(q: string): Promise<WikiImage | null> {
     const src = p.thumbnail?.source || "";
     if (!src.startsWith(UPLOAD) || !src.includes("/wikipedia/commons/")) continue;
     if (FA_BLOCK.test(p.title) || JUNK_TITLE.test(p.title)) continue;
+    if (!isRelevantImage(q, p.title)) continue;
     return {
       url: safeUrl(src),
       alt: cleanLabel(p.title, 60),

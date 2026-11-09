@@ -1,4 +1,4 @@
-import { LESSONS, matchLesson, todayFact, localDaily, localLanguage } from "./library-data";
+import { LESSONS, matchLesson, todayFact, localDaily, localLanguage } from "./library-data.ts";
 
 const GREET_WORDS = ["سلام", "درود", "hi", "hello", "hey", "صبح بخیر", "عصر بخیر", "شب بخیر"];
 
@@ -46,9 +46,9 @@ export function localTutorReply(opts: {
   const prevAssistant = [...opts.messages].reverse().find((m) => m.role === "assistant")?.content ?? "";
   const userTurns = opts.messages.filter((m) => m.role === "user");
 
-  if (opts.mode === "daily") return localDaily(opts.messages);
+  if (opts.mode === "daily") return localDaily();
   if (opts.mode === "live" || opts.mode === "language") {
-    return localLanguage(opts.lang || "fa", last, opts.messages.length);
+    return localLanguage(opts.lang || "fa");
   }
 
   // فقط سؤال صریح دربارهٔ هویت پویا — نه هر جمله‌ای که «مدل» دارد

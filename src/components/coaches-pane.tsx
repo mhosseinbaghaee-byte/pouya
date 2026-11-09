@@ -8,16 +8,18 @@ type View = "coaches" | "lessons";
 
 export function CoachesPane({
   activeId,
+  initialView = "coaches",
   onSelect,
   onStart,
   onAskLesson,
 }: {
   activeId?: string;
+  initialView?: View;
   onSelect: (a: Assistant) => void;
   onStart: (a: Assistant) => void;
   onAskLesson?: (prompt: string) => void;
 }) {
-  const [view, setView] = useState<View>("coaches");
+  const [view, setView] = useState<View>(initialView);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

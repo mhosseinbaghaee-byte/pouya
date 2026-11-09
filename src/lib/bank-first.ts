@@ -1,5 +1,5 @@
-import { localTutorReply, isPureGreeting } from "./library-reply";
-import { looksVisual } from "./wiki-image";
+import { localTutorReply, isPureGreeting } from "./library-reply.ts";
+import { looksVisual } from "./wiki-image.ts";
 
 type Msg = { role: "user" | "assistant"; content: string };
 

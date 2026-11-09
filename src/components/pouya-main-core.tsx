@@ -80,6 +80,7 @@ function spokenSlice(text: string) {
 
 export function PouyaMainApp() {
   const [tab, setTab] = useState<Tab>("chat");
+  const [coachesInitialView, setCoachesInitialView] = useState<"coaches" | "lessons">("coaches");
   const [level, setLevel] = useState<Level>("teen");
   const [voiceOn, setVoiceOn] = useState(false);
   const [mood, setMood] = useState<StageMood>("idle");
@@ -604,7 +605,10 @@ export function PouyaMainApp() {
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => {
+                if (id === "coaches") setCoachesInitialView("coaches");
+                setTab(id);
+              }}
               className={cn(
                 "inline-flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] touch-manipulation sm:text-xs",
                 tab === id
@@ -640,6 +644,10 @@ export function PouyaMainApp() {
             scrollerRef={scrollerRef}
             onSend={(t, att) => void send(t, mode === "lesson" || mode === "daily" ? mode : "chat", undefined, att)}
             onLesson={(t) => void send(`درس بده درباره ${t}`, "lesson")}
+            onOpenLessonSection={() => {
+              setCoachesInitialView("lessons");
+              setTab("coaches");
+            }}
             onDaily={() => void send("یک موضوع آموزشی روزانه بگو", "daily")}
             onFact={() => void send("یک دانستنی علمی کوتاه بگو", "chat")}
             onMic={() => toggleMic("chat")}
@@ -680,6 +688,7 @@ export function PouyaMainApp() {
         ) : null}
         {tab === "coaches" ? (
           <CoachesPane
+            initialView={coachesInitialView}
             activeId={assistantId}
             onSelect={(a) => setAssistantId(a.id)}
             onStart={(a) => {

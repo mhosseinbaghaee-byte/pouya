@@ -1,8 +1,7 @@
 /**
- * اطلس جغرافیای فارسی پویا — نسخه کامل
- * تصاویر در public/atlas/
- * اولویت: کشور/منطقه خاص → قاره → جهان
+ * اطلس جغرافیای فارسی پویا — همه تصاویر public/atlas
  */
+import { EXTRA_ATLAS_MAPS } from "./geo-atlas-extra";
 
 export type GeoAtlasMap = {
   id: string;
@@ -10,16 +9,14 @@ export type GeoAtlasMap = {
   keywords: string[];
   caption: string;
   imageUrl: string;
+  gallery?: string[];
 };
 
-export const GEO_ATLAS_MAPS: GeoAtlasMap[] = [
+const CORE_ATLAS_MAPS: GeoAtlasMap[] = [
   {
     id: "world-political",
     title: "نقشه سیاسی جهان",
-    keywords: [
-      "نقشه جهان", "نقشه سیاسی جهان", "کره زمین", "world map",
-      "نقشه کره زمین", "نقشه دنیا", "نقشه زمین", "نقشه کل جهان",
-    ],
+    keywords: ["نقشه جهان", "نقشه سیاسی جهان", "کره زمین", "world map", "نقشه کره زمین", "نقشه دنیا", "نقشه زمین", "نقشه کل جهان"],
     caption: "نقشه سیاسی جهان — قاره‌ها، کشورها و اقیانوس‌ها.",
     imageUrl: "/atlas/world-political.jpg",
   },
@@ -33,31 +30,21 @@ export const GEO_ATLAS_MAPS: GeoAtlasMap[] = [
   {
     id: "middle-east",
     title: "خاورمیانه",
-    keywords: [
-      "خاورمیانه", "خاور میانه", "نقشه خاورمیانه", "خلیج فارس",
-      "عربستان", "عراق", "افغانستان", "پاکستان", "سوریه", "لبنان",
-    ],
+    keywords: ["خاورمیانه", "خاور میانه", "نقشه خاورمیانه", "خلیج فارس", "عربستان", "عراق", "افغانستان", "پاکستان", "سوریه", "لبنان"],
     caption: "نقشه خاورمیانه و کشورهای همسایه.",
     imageUrl: "/atlas/middle-east.jpg",
   },
   {
     id: "iran-political",
     title: "ایران — سیاسی (استان‌ها)",
-    keywords: [
-      "ایران", "نقشه ایران", "ایران سیاسی", "استانهای ایران", "استان‌های ایران",
-      "نقشه استان", "استان ایران", "همسایه های ایران", "همسایه‌های ایران",
-      "مرز ایران", "جمهوری اسلامی ایران", "نقشه استان‌ها", "کشور ایران",
-    ],
+    keywords: ["ایران", "نقشه ایران", "ایران سیاسی", "استانهای ایران", "استان‌های ایران", "نقشه استان", "استان ایران", "همسایه های ایران", "همسایه‌های ایران", "مرز ایران", "جمهوری اسلامی ایران", "نقشه استان‌ها", "کشور ایران"],
     caption: "نقشه سیاسی ایران با استان‌ها و همسایگان.",
     imageUrl: "/atlas/iran-political.jpg",
   },
   {
     id: "iran-physical",
     title: "ایران — طبیعی",
-    keywords: [
-      "ایران طبیعی", "نقشه طبیعی ایران", "کوههای ایران", "کوه‌های ایران",
-      "البرز", "زاگرس", "دشت کویر", "دشت لوت", "دریای خزر", "نقشه طبیعی",
-    ],
+    keywords: ["ایران طبیعی", "نقشه طبیعی ایران", "کوههای ایران", "کوه‌های ایران", "البرز", "زاگرس", "دشت کویر", "دشت لوت", "دریای خزر", "نقشه طبیعی"],
     caption: "نقشه طبیعی ایران — کوه، دشت و پستی‌وبلندی.",
     imageUrl: "/atlas/iran-physical.jpg",
   },
@@ -78,20 +65,14 @@ export const GEO_ATLAS_MAPS: GeoAtlasMap[] = [
   {
     id: "americas",
     title: "آمریکای شمالی و جنوبی",
-    keywords: [
-      "آمریکای جنوبی", "آمریکای شمالی", "نقشه آمریکا", "قاره آمریکا",
-      "برزیل", "آرژانتین", "کانادا",
-    ],
+    keywords: ["آمریکای جنوبی", "آمریکای شمالی", "نقشه آمریکا", "قاره آمریکا", "برزیل", "آرژانتین", "کانادا"],
     caption: "نقشه آمریکای شمالی و جنوبی.",
     imageUrl: "/atlas/americas.jpg",
   },
   {
     id: "north-america",
     title: "آمریکای شمالی",
-    keywords: [
-      "آمریکای شمالی", "ایالات متحده", "نقشه آمریکا شمالی", "نقشه کانادا", "مکزیک",
-      "آمریکا", "ایالات متحده آمریکا",
-    ],
+    keywords: ["آمریکای شمالی", "ایالات متحده", "نقشه آمریکا شمالی", "نقشه کانادا", "مکزیک", "آمریکا", "ایالات متحده آمریکا"],
     caption: "نقشه آمریکای شمالی.",
     imageUrl: "/atlas/north-america.jpg",
   },
@@ -105,39 +86,115 @@ export const GEO_ATLAS_MAPS: GeoAtlasMap[] = [
   {
     id: "oceania",
     title: "استرالیا و اقیانوسیه",
-    keywords: [
-      "استرالیا", "اقیانوسیه", "نقشه استرالیا", "نیوزیلند", "اقیانوس آرام",
-      "قاره اقیانوسیه",
-    ],
+    keywords: ["استرالیا", "اقیانوسیه", "نقشه استرالیا", "نیوزیلند", "اقیانوس آرام", "قاره اقیانوسیه"],
     caption: "استرالیا، نیوزیلند و جزایر اقیانوسیه.",
     imageUrl: "/atlas/oceania.jpg",
   },
   {
     id: "arctic",
     title: "قطب شمال",
-    keywords: [
-      "قطب شمال", "اقیانوس منجمد شمالی", "نقشه قطب شمال", "گرینلند",
-      "منطقه قطبی شمال",
-    ],
+    keywords: ["قطب شمال", "اقیانوس منجمد شمالی", "نقشه قطب شمال", "گرینلند", "منطقه قطبی شمال"],
     caption: "اقیانوس منجمد شمالی و مناطق قطبی شمال.",
     imageUrl: "/atlas/arctic.jpg",
   },
   {
     id: "antarctica",
     title: "قطب جنوب",
-    keywords: [
-      "قطب جنوب", "قطب جنوبی", "آنتارکتیکا", "نقشه قطب جنوب",
-      "اقیانوس منجمد جنوبی", "قاره قطب جنوب",
-    ],
+    keywords: ["قطب جنوب", "قطب جنوبی", "آنتارکتیکا", "نقشه قطب جنوب", "اقیانوس منجمد جنوبی", "قاره قطب جنوب"],
     caption: "قاره قطب جنوب (آنتارکتیکا).",
     imageUrl: "/atlas/antarctica.jpg",
   },
   {
     id: "pg-008",
-    title: "پرچم کشورهای جهان (۱)",
-    keywords: ["پرچم", "پرچم کشورها", "پرچم جهان", "پرچم‌های جهان", "نماد کشورها"],
-    caption: "پرچم کشورهای جهان — بخش اول.",
+    title: "پرچم کشورهای جهان",
+    keywords: ["پرچم", "پرچم کشورها", "پرچم جهان", "پرچم‌های جهان", "نماد کشورها", "همه پرچم‌ها"],
+    caption: "پرچم کشورهای جهان — چند صفحه.",
     imageUrl: "/atlas/pg-008-006.jpg",
+    gallery: ["/atlas/pg-008-006.jpg", "/atlas/pg-009-007.jpg", "/atlas/pg-011-009.jpg"],
+  },
+  {
+    id: "pg-009",
+    title: "پرچم کشورهای جهان (۲)",
+    keywords: ["پرچم", "پرچم کشورها", "صفحه دوم پرچم", "پرچم قاره", "پرچم اروپا", "پرچم آسیا", "پرچم آفریقا"],
+    caption: "پرچم کشورهای جهان — بخش دوم.",
+    imageUrl: "/atlas/pg-009-007.jpg",
+  },
+  {
+    id: "pg-010",
+    title: "نقشه طبیعی جهان",
+    keywords: ["نقشه طبیعی جهان", "پستی و بلندی", "نقشه فیزیکی جهان", "رلیف"],
+    caption: "نقشه طبیعی جهان با نمایش پستی‌وبلندی.",
+    imageUrl: "/atlas/pg-010-008.jpg",
+  },
+  {
+    id: "pg-012",
+    title: "مناطق زمانی جهان",
+    keywords: ["مناطق زمانی", "ساعت جهانی", "منطقه زمانی", "time zone", "ساعت کشورها"],
+    caption: "نقشه مناطق زمانی جهان.",
+    imageUrl: "/atlas/pg-012-010.jpg",
+  },
+  {
+    id: "pg-050",
+    title: "مکزیک و آمریکای مرکزی",
+    keywords: ["مکزیک", "آمریکای مرکزی", "پاناما", "کاستاریکا", "گواتمالا", "کوبا"],
+    caption: "نقشه مکزیک، آمریکای مرکزی و کارائیب.",
+    imageUrl: "/atlas/pg-050-048.jpg",
+  },
+  {
+    id: "pg-065",
+    title: "برزیل",
+    keywords: ["برزیل", "ریو دو ژانیرو", "سائوپائولو", "آمازون"],
+    caption: "نقشه برزیل.",
+    imageUrl: "/atlas/pg-065-063.jpg",
+  },
+  {
+    id: "pg-074",
+    title: "مصر و سودان",
+    keywords: ["مصر", "قاهره", "رود نیل", "سودان", "اسوان"],
+    caption: "نقشه مصر و سودان.",
+    imageUrl: "/atlas/pg-074-072.jpg",
+  },
+  {
+    id: "pg-083",
+    title: "روسیه و شمال اوراسیا",
+    keywords: ["روسیه", "مسکو", "سیبری", "نقشه روسیه", "اوراسیا"],
+    caption: "نقشه روسیه و شمال اوراسیا.",
+    imageUrl: "/atlas/pg-083-081.jpg",
+  },
+  {
+    id: "pg-092",
+    title: "اسپانیا و پرتغال",
+    keywords: ["اسپانیا", "پرتغال", "مادرید", "لیسبون", "بارسلونا", "ایبری"],
+    caption: "نقشه اسپانیا و پرتغال.",
+    imageUrl: "/atlas/pg-092-090.jpg",
+  },
+  {
+    id: "pg-093",
+    title: "ایتالیا",
+    keywords: ["ایتالیا", "رم", "میلان", "ونیز", "فلورانس", "ناپل", "سیسیل"],
+    caption: "نقشه ایتالیا.",
+    imageUrl: "/atlas/pg-093-091.jpg",
+  },
+  {
+    id: "pg-096",
+    title: "آلمان و اروپای مرکزی",
+    keywords: ["آلمان", "برلین", "مونیخ", "فرانکفورت", "اتریش", "سوئیس", "لهستان"],
+    caption: "نقشه آلمان و اروپای مرکزی.",
+    imageUrl: "/atlas/pg-096-094.jpg",
+  },
+  {
+    id: "pg-097",
+    title: "فرانسه و اروپای غربی",
+    keywords: ["فرانسه", "پاریس", "لیون", "مارسی", "بلژیک", "هلند", "لوکزامبورگ"],
+    caption: "نقشه فرانسه و اروپای غربی.",
+    imageUrl: "/atlas/pg-097-095.jpg",
+  },
+  {
+    id: "pg-099",
+    title: "یونان و دریای اژه",
+    keywords: ["یونان", "آتن", "جزایر یونان", "کرت", "اژه", "مقدونیه"],
+    caption: "نقشه یونان و جزایر اژه.",
+    imageUrl: "/atlas/pg-099-097.jpg",
   },
   {
     id: "pg-118",
@@ -153,70 +210,9 @@ export const GEO_ATLAS_MAPS: GeoAtlasMap[] = [
     caption: "نقشه منطقه قفقاز.",
     imageUrl: "/atlas/pg-119-117.jpg",
   },
-  {
-    id: "pg-093",
-    title: "ایتالیا",
-    keywords: ["ایتالیا", "رم", "میلان", "ونیز", "فلورانس", "ناپل", "سیسیل"],
-    caption: "نقشه ایتالیا.",
-    imageUrl: "/atlas/pg-093-091.jpg",
-  },
-  {
-    id: "pg-097",
-    title: "فرانسه و اروپای غربی",
-    keywords: ["فرانسه", "پاریس", "لیون", "مارسی", "بلژیک", "هلند", "لوکزامبورگ"],
-    caption: "نقشه فرانسه و اروپای غربی.",
-    imageUrl: "/atlas/pg-097-095.jpg",
-  },
-  {
-    id: "pg-096",
-    title: "آلمان و اروپای مرکزی",
-    keywords: ["آلمان", "برلین", "مونیخ", "فرانکفورت", "اتریش", "سوئیس", "لهستان"],
-    caption: "نقشه آلمان و اروپای مرکزی.",
-    imageUrl: "/atlas/pg-096-094.jpg",
-  },
-  {
-    id: "pg-092",
-    title: "اسپانیا و پرتغال",
-    keywords: ["اسپانیا", "پرتغال", "مادرید", "لیسبون", "بارسلونا", "ایبری"],
-    caption: "نقشه اسپانیا و پرتغال.",
-    imageUrl: "/atlas/pg-092-090.jpg",
-  },
-  {
-    id: "pg-099",
-    title: "یونان و دریای اژه",
-    keywords: ["یونان", "آتن", "جزایر یونان", "کرت", "اژه", "مقدونیه"],
-    caption: "نقشه یونان و جزایر اژه.",
-    imageUrl: "/atlas/pg-099-097.jpg",
-  },
-  {
-    id: "pg-083",
-    title: "روسیه و شمال اوراسیا",
-    keywords: ["روسیه", "مسکو", "سیبری", "نقشه روسیه", "اوراسیا"],
-    caption: "نقشه روسیه و شمال اوراسیا.",
-    imageUrl: "/atlas/pg-083-081.jpg",
-  },
-  {
-    id: "pg-074",
-    title: "مصر و سودان",
-    keywords: ["مصر", "قاهره", "رود نیل", "سودان", "اسوان"],
-    caption: "نقشه مصر و سودان.",
-    imageUrl: "/atlas/pg-074-072.jpg",
-  },
-  {
-    id: "pg-065",
-    title: "برزیل",
-    keywords: ["برزیل", "ریو دو ژانیرو", "سائوپائولو", "آمازون"],
-    caption: "نقشه برزیل.",
-    imageUrl: "/atlas/pg-065-063.jpg",
-  },
-  {
-    id: "pg-050",
-    title: "مکزیک و آمریکای مرکزی",
-    keywords: ["مکزیک", "آمریکای مرکزی", "پاناما", "کاستاریکا", "گواتمالا", "کوبا"],
-    caption: "نقشه مکزیک، آمریکای مرکزی و کارائیب.",
-    imageUrl: "/atlas/pg-050-048.jpg",
-  },
 ];
+
+export const GEO_ATLAS_MAPS: GeoAtlasMap[] = [...CORE_ATLAS_MAPS, ...EXTRA_ATLAS_MAPS];
 
 function norm(s: string) {
   return s
@@ -233,14 +229,11 @@ const BROAD_IDS = new Set([
   "north-america", "south-america", "oceania", "arctic", "antarctica",
 ]);
 
-/** تطبیق سؤال با نقشه اطلس — کشور/منطقه خاص بر کلی اولویت دارد */
 export function matchGeoAtlas(text: string): GeoAtlasMap | null {
   const t = norm(text);
   if (t.length < 2) return null;
-
   type Cand = { map: GeoAtlasMap; score: number; specific: boolean };
   const cands: Cand[] = [];
-
   for (const m of GEO_ATLAS_MAPS) {
     let hits = 0;
     let longest = 0;
@@ -260,7 +253,6 @@ export function matchGeoAtlas(text: string): GeoAtlasMap | null {
       cands.push({ map: m, score, specific });
     }
   }
-
   if (!cands.length) return null;
   cands.sort((a, b) => b.score - a.score);
   const top = cands[0];
@@ -270,5 +262,7 @@ export function matchGeoAtlas(text: string): GeoAtlasMap | null {
 }
 
 export function geoAtlasMarkdown(map: GeoAtlasMap): string {
-  return `![${map.title}](${map.imageUrl})\n*${map.caption}*`;
+  const imgs = map.gallery && map.gallery.length ? map.gallery : [map.imageUrl];
+  const blocks = imgs.map((u, i) => `![${map.title}${imgs.length > 1 ? ` (${i + 1})` : ""}](${u})`);
+  return `${blocks.join("\n")}\n*${map.caption}*`;
 }

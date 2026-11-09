@@ -21,7 +21,7 @@ import { pendingMigrations } from "./migration-plan.mjs";
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   console.log(
-    "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
+    "[migrate] DATABASE_URL not set — skipping persistent database migrations.",
   );
   process.exit(0);
 }

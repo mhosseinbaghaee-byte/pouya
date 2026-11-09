@@ -127,7 +127,7 @@ function inlineFormat(text: string): ReactNode[] {
 }
 
 function ShapeSvg({ kind }: { kind: string }) {
-  return <LessonDiagramSvg kind={kind} />;
+  return <LessonDiagramSvg id={kind} />;
 }
 
 function DiagramBlock({ id }: { id: string }) {
@@ -166,7 +166,7 @@ function DiagramBlock({ id }: { id: string }) {
           className="max-h-52 w-auto max-w-full rounded-lg object-contain"
         />
       ) : (
-        <LessonDiagramSvg kind={id} />
+        <LessonDiagramSvg id={id} />
       )}
       {meta.caption ? <p className="text-xs leading-relaxed text-fg-muted">{meta.caption}</p> : null}
       {meta.attribution ? (
