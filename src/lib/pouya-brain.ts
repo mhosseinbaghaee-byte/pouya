@@ -38,6 +38,9 @@ function cacheKey(question: string, level?: string, assistantId?: string): strin
 export function isBankWorthyQuestion(q: string): boolean {
   const t = q.trim();
   if (t.length < 4 || t.length > 180) return false;
+  if (/^(سلام|درود|hi|hello|hey|خوبی|چطوری|چه خبر|مرسی|ممنون|باشه|اوکی|ok|okay|آره|بله|نه)[!.؟?]*$/i.test(t)) {
+    return false;
+  }
 
   // The shared bank is for reusable definitions, not explanations whose
   // answer depends on context, opinion, or a learner's personal situation.
