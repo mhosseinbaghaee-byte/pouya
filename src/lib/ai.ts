@@ -49,7 +49,7 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 type ChatResult = { ok: true; text: string; provider?: string } | { ok: false; error: string };
 type ProviderId = "bank" | "openai" | "gemini";
 
-const DEFAULT_GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"];
+const DEFAULT_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash"];
 function geminiModels(): string[] {
   const raw = process.env.GEMINI_MODELS;
   const list = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -237,7 +237,26 @@ function providerOrder(): ProviderId[] {
   return list.length ? list : DEFAULT_ORDER;
 }
 
-async function callGemini(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 5_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callGemini(
+  messages: ChatMsg[],
+  system: string,
+  image: string | undefined,
+  deadline: number,
+): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) {
     logAi("gemini_no_key");
@@ -260,6 +279,8 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
   }
   for (const model of models) {
     try {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const res = await fetchWithTimeout(url, {
         method: "POST",
@@ -272,7 +293,7 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
           contents,
           generationConfig: { temperature: 0.6, maxOutputTokens: 2048 },
         }),
-      });
+      }, Math.min(5_000, remaining));
       if (!res.ok) {
         logAi("gemini_http", model, res.status);
         // Authentication and quota failures are project-wide; trying more
@@ -292,7 +313,12 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
   return null;
 }
 
-async function callOpenAI(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
+async function callOpenAI(
+  messages: ChatMsg[],
+  system: string,
+  image: string | undefined,
+  deadline: number,
+): Promise<string | null> {
   const key = process.env.OPENAI_API_KEY || process.env.LIARA_API_KEY;
   if (!key) return null;
   const base = (
@@ -321,11 +347,13 @@ async function callOpenAI(messages: ChatMsg[], system: string, image?: string): 
     msgs.push({ role: m.role, content: m.content });
   }
   try {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
     const res = await fetchWithTimeout(`${base}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages: msgs, temperature: 0.6 }),
-    });
+    }, Math.min(5_000, remaining));
     if (!res.ok) {
       logAi("openai_http", res.status);
       return null;
@@ -365,6 +393,7 @@ export const askPouya = createServerFn({ method: "POST" })
   .validator((input: unknown) => ChatInput.parse(input))
   .handler(async ({ data }): Promise<ChatResult> => {
     try {
+      const requestDeadline = Date.now() + 8_000;
       const level = data.level;
       const mode = data.mode as ChatMode;
       const messages = data.messages as ChatMsg[];
@@ -400,14 +429,14 @@ export const askPouya = createServerFn({ method: "POST" })
       for (const p of providerOrder()) {
         if (p === "bank") continue;
         if (p === "gemini") {
-          reply = await callGemini(messages, system, data.image);
+          reply = await callGemini(messages, system, data.image, requestDeadline);
           if (reply) {
             provider = "gemini";
             break;
           }
         }
         if (p === "openai") {
-          reply = await callOpenAI(messages, system, data.image);
+          reply = await callOpenAI(messages, system, data.image, requestDeadline);
           if (reply) {
             provider = "openai";
             break;
