@@ -20,3 +20,25 @@ export async function fetchTextWithTimeout(
     clearTimeout(timer);
   }
 }
+
+
+/**
+ * Read binary responses under the same deadline as the request.
+ * Used by TTS so a stalled audio body cannot hold a serverless invocation open.
+ */
+export async function fetchBytesWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 8_000,
+  fetcher: typeof fetch = fetch,
+): Promise<{ response: Response; body: ArrayBuffer }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+  try {
+    const response = await fetcher(url, { ...init, signal: controller.signal });
+    const body = await response.arrayBuffer();
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
