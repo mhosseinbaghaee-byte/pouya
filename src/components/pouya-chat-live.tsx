@@ -1,6 +1,8 @@
 import { type RefObject, useRef, useState } from "react";
 import {
   BookOpen,
+  Check,
+  Copy,
   History,
   Languages,
   Mic,
@@ -14,6 +16,7 @@ import {
 import { LEVELS, TOPICS, type Level } from "@/lib/topics";
 import { saveProfile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { RichText } from "./rich-text";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/input";
@@ -54,11 +57,37 @@ function Bubble({
   image?: string;
 }) {
   const mine = role === "user";
+  const [copied, setCopied] = useState(false);
+
+  async function copyText() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = text;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        const ok = document.execCommand("copy");
+        field.remove();
+        if (!ok) throw new Error("Clipboard unavailable");
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+      toast.success("متن کپی شد");
+    } catch {
+      toast.error("کپی انجام نشد؛ متن را انتخاب و کپی کن.");
+    }
+  }
+
   return (
     <div className={cn("flex max-w-[88%] flex-col", mine ? "ms-auto" : "")}>
       <article
         className={cn(
-          "rounded-2xl px-4 py-3 text-sm leading-normal shadow-sm",
+          "rounded-2xl px-4 py-3 text-sm leading-normal shadow-sm break-words [overflow-wrap:anywhere] select-text",
           mine
             ? "bg-stage text-cream"
             : "border border-white/40 bg-white/85 text-ink backdrop-blur-md",
@@ -71,8 +100,20 @@ function Bubble({
             className="mb-2 max-h-48 w-auto max-w-full rounded-xl object-contain"
           />
         ) : null}
-        {mine ? <p className="text-pretty">{text}</p> : <RichText text={text} />}
+        {mine ? <p className="whitespace-pre-wrap text-pretty">{text}</p> : <RichText text={text} />}
       </article>
+      <div className="mt-1 flex justify-end px-1">
+        <button
+          type="button"
+          onClick={() => void copyText()}
+          className="inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-[11px] text-cream/75 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          aria-label={copied ? "متن کپی شد" : "کپی متن پیام"}
+          title="کپی متن"
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          <span>{copied ? "کپی شد" : "کپی"}</span>
+        </button>
+      </div>
     </div>
   );
 }
