@@ -1,6 +1,5 @@
 import { type RefObject, useRef, useState } from "react";
 import {
-  ArrowLeft,
   BookOpen,
   Check,
   Copy,
@@ -23,8 +22,6 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/input";
 import type { ChatMode } from "@/lib/ai";
 import { PouyaFaceButton } from "./pouya-face-button";
-import { LESSON_DIAGRAMS } from "@/lib/lesson-diagrams";
-import { LessonDiagramSvg } from "./lesson-diagram-svg";
 
 type ChatMsg = { role: "user" | "assistant"; content: string; image?: string };
 export type ChatAttachment = { name: string; mime: string; dataUrl: string };
@@ -184,8 +181,6 @@ export function ChatPane(props: {
   const empty = messages.length === 0 && !typed;
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState<ChatAttachment | null>(null);
-  const [diagramGalleryOpen, setDiagramGalleryOpen] = useState(false);
-  const [diagramSubject, setDiagramSubject] = useState("همه");
   const typedText = typeof typed === "string" ? typed : "";
 
   function pickFile(file: File | null | undefined) {
@@ -364,75 +359,25 @@ export function ChatPane(props: {
               ))}
             </div>
 
-            {diagramGalleryOpen ? (
-              <section className="w-full rounded-2xl border border-white/20 bg-white/10 p-3 text-start backdrop-blur-sm" aria-label="فهرست درس با شکل">
-                <div className="mb-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDiagramGalleryOpen(false)}
-                    className="rounded-full border border-white/25 p-2 text-cream transition hover:bg-white/15"
-                    aria-label="بازگشت به صفحه اصلی"
-                  >
-                    <ArrowLeft className="size-4" />
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-semibold text-cream">درس با شکل</h2>
-                    <p className="mt-1 text-xs text-cream/70">موضوع موردنظرت را انتخاب کن.</p>
-                  </div>
-                </div>
-                <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="دسته‌بندی شکل‌ها">
-                  {["همه", "علوم", "شیمی", "زیست‌شناسی", "فیزیک", "جغرافیا"].map((subject) => (
-                    <button
-                      key={subject}
-                      type="button"
-                      onClick={() => setDiagramSubject(subject)}
-                      className={cn(chipClass, diagramSubject === subject && "bg-white/40 ring-1 ring-white/50 font-medium")}
-                      aria-pressed={diagramSubject === subject}
-                    >
-                      {subject}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {LESSON_DIAGRAMS.filter((d) => {
-                    if (diagramSubject === "همه") return true;
-                    if (diagramSubject === "زیست‌شناسی") return d.subject.includes("زیست");
-                    if (diagramSubject === "علوم") return d.subject === "علوم" || d.subject.startsWith("علوم /");
-                    return d.subject === diagramSubject;
-                  }).map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => onLesson(`موضوع «${d.title}» را مرحله‌به‌مرحله و ساده به فارسی آموزش بده و شکل آموزشی آن را هم نمایش بده.`)}
-                      className="min-w-0 rounded-xl border border-white/25 bg-white/90 p-2 text-center text-ink transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    >
-                      <LessonDiagramSvg id={d.id} />
-                      <span className="mt-1 block text-xs font-medium leading-relaxed">{d.title}</span>
-                      <span className="mt-0.5 block text-[10px] text-fg-muted">{d.grades}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setDiagramSubject("همه");
-                  setDiagramGalleryOpen(true);
-                }}
-                className="flex w-full items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-3 text-start text-cream backdrop-blur-sm transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                aria-label="باز کردن درس با شکل"
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                  <BookOpen className="size-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">درس با شکل</span>
-                  <span className="mt-1 block text-xs text-cream/70">شکل‌های آموزشی علوم، شیمی، زیست‌شناسی و فیزیک</span>
-                </span>
-                <span className="text-xs text-cream/70">مشاهده</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                onLesson(
+                  "می‌خواهم وارد حالت «درس با شکل» شوم. ابتدا از من بخواه موضوع یا مبحثی را که می‌خواهم یاد بگیرم خودم انتخاب کنم. بعد از انتخاب من، درس را مرحله‌به‌مرحله و به زبان ساده فارسی آموزش بده، شکل یا نمودار آموزشی مرتبط را نمایش بده و مطمئن شو مفهوم را فهمیده‌ام."
+                )
+              }
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-3 text-start text-cream backdrop-blur-sm transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="شروع درس با شکل در مربی پویا"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                <BookOpen className="size-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">درس با شکل</span>
+                <span className="mt-1 block text-xs text-cream/70">انتخاب موضوع و آموزش تصویری در گفت‌وگو با مربی</span>
+              </span>
+              <span className="text-xs text-cream/70">شروع</span>
+            </button>
 
             <div className="flex flex-wrap justify-center gap-2">
               <button
