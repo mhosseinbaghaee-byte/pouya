@@ -22,6 +22,8 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/input";
 import type { ChatMode } from "@/lib/ai";
 import { PouyaFaceButton } from "./pouya-face-button";
+import { LESSON_DIAGRAMS } from "@/lib/lesson-diagrams";
+import { LessonDiagramSvg } from "./lesson-diagram-svg";
 
 type ChatMsg = { role: "user" | "assistant"; content: string; image?: string };
 export type ChatAttachment = { name: string; mime: string; dataUrl: string };
@@ -358,6 +360,30 @@ export function ChatPane(props: {
                 </button>
               ))}
             </div>
+
+            <section className="w-full rounded-2xl border border-white/20 bg-white/10 p-3 text-start backdrop-blur-sm" aria-label="درس با شکل">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-cream">درس با شکل</h2>
+                  <p className="mt-1 text-xs text-cream/70">یک موضوع را انتخاب کن تا پویا آن را همراه با تصویر آموزشی توضیح دهد.</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white/15 px-2 py-1 text-[11px] text-cream/80">علوم و شیمی</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {LESSON_DIAGRAMS.filter((d) => ["شیمی", "فیزیک", "علوم / شیمی"].includes(d.subject)).map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => onLesson(`موضوع «${d.title}» را مرحله‌به‌مرحله و ساده به فارسی آموزش بده و شکل آموزشی آن را هم نمایش بده.`)}
+                    className="min-w-0 rounded-xl border border-white/25 bg-white/90 p-2 text-center text-ink transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    <LessonDiagramSvg id={d.id} />
+                    <span className="mt-1 block text-xs font-medium leading-relaxed">{d.title}</span>
+                    <span className="mt-0.5 block text-[10px] text-fg-muted">{d.grades}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
 
             <div className="flex flex-wrap justify-center gap-2">
               <button
