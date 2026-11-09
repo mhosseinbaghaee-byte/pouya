@@ -83,6 +83,10 @@ export async function getSessionUser(
  */
 export async function requireUserId(bearerToken?: string): Promise<string> {
   if (!authConfigured && !gateIdentityEnabled()) {
+    // Never let deployed visitors share the preview-only dev identity.
+    if (process.env.VERCEL === "1" && !databaseConfigured) {
+      throw new UnauthorizedError();
+    }
     if (databaseConfigured) {
       throw new Error(
         "Auth is disabled (VITE_AUTH_ENABLED=false) but DATABASE_URL is set — " +
