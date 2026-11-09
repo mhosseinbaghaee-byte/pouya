@@ -69,7 +69,7 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     grades: "ششم تا دهم",
     keywords: ["فتوسنتز", "کلروفیل", "غذاسازی گیاه", "photosynthesis"],
     caption: "نور + آب + CO₂ → قند + اکسیژن (در کلروپلاست).",
-    imageUrl: WM("Photosynthesis_equation.svg", 700),
+    imageUrl: "/images/anatomy/03_muscular_system.png",
     attribution: "ویکی‌مدیا کامنز — معادله فتوسنتز",
   },
   {
@@ -79,8 +79,9 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     grades: "هشتم / دهم",
     keywords: ["قلب", "شکل قلب", "ساختار قلب", "دهلیز", "بطن", "گردش خون", "قلب انسان", "heart"],
     caption: "دو دهلیز بالا و دو بطن پایین؛ خون را در بدن به گردش درمی‌آورد.",
-    imageUrl: WM("Heart_diagram_blood_flow_en.svg", 900),
-    attribution: "ویکی‌مدیا کامنز — نمودار قلب و جریان خون",
+    imageUrl: "/images/anatomy/05_heart_and_circulation.png",
+    attribution: "بانک تصاویر آموزشی آناتومی پویا",
+    
   },
   {
     id: "water_cycle",
