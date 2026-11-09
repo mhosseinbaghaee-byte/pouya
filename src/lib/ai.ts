@@ -370,16 +370,16 @@ async function callOpenAI(
 /** اولویت اطلس محلی؛ فقط اگر نبود ویکی‌مدیا */
 async function attachVisuals(text: string, lastUser: string): Promise<string> {
   // Never trust image URLs or [wiki:...] tags emitted by the model.
-  let out = text.replace(/!\\[[^\\]]*\\]\\([^)]+\\)/g, "").replace(/\\[wiki:[^\\]]*\\]/gi, "").trim();
+  let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
   const localDiagram = matchDiagram(lastUser);
   if (localDiagram?.imageUrl) {
     const imgMd = "![" + localDiagram.title + "](" + localDiagram.imageUrl + ")";
-    const cap = localDiagram.caption ? "\\n*" + localDiagram.caption + "*" : "";
-    out = out + "\\n\\n" + imgMd + cap;
+    const cap = localDiagram.caption ? "\n*" + localDiagram.caption + "*" : "";
+    out = out + "\n\n" + imgMd + cap;
   } else if (looksVisual(lastUser)) {
     const q = queryFromPersian(lastUser);
     // If the subject cannot be extracted confidently, answer in text only.
-    if (q) out = out + "\\n\\n[wiki:" + q + "]";
+    if (q) out = out + "\n\n[wiki:" + q + "]";
   }
   try {
     const resolved = await resolveWikiTags(out);
