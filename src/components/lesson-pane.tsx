@@ -65,7 +65,7 @@ export function LessonPane({ onAsk }: { onAsk?: (prompt: string) => void }) {
               {active.subject} · {active.grades}
             </span>
           </div>
-          <LessonDiagramSvg id={active.id} />
+          {active.imageUrl ? (\n            <img\n              src={active.imageUrl}\n              alt={active.title}\n              loading="lazy"\n              decoding="async"\n              className="my-2 max-h-[min(65vh,560px)] w-full rounded-xl border border-border/40 bg-white object-contain"\n            />\n          ) : (\n            <LessonDiagramSvg id={active.id} />\n          )}
           <p className="mt-2 text-center text-sm text-fg-muted">{active.caption}</p>
           {onAsk ? (
             <Button
