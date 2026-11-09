@@ -1,4 +1,4 @@
-import { LESSONS, matchLesson, todayFact, localDaily, localLanguage } from "./library-data";
+import { LESSONS, matchLesson, todayFact, localDaily, localLanguage } from "./library-data.ts";
 
 const GREET_WORDS = ["سلام", "درود", "hi", "hello", "hey", "صبح بخیر", "عصر بخیر", "شب بخیر"];
 
