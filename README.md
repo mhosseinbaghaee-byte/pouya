@@ -95,6 +95,7 @@ docs/
 | `OPENAI_BASE_URL` | آدرس API لیارا |
 | `OPENAI_MODEL` | مدل لیارا (مثلاً `gpt-4o-mini`) |
 | `OPENAI_TTS_KEY` | کلید TTS (مکالمه صوتی) |
+| `OPENAI_TTS_BASE_URL` | اختیاری — آدرس API مستقل برای TTS؛ در صورت نبود از `OPENAI_BASE_URL` یا `LIARA_BASE_URL` استفاده می‌شود |
 | `OPENAI_TTS_MODEL` / `OPENAI_TTS_VOICE` | اختیاری — پیش‌فرض `tts-1` / `echo` |
 | `DATABASE_URL` | برای حافظه مشترک و نشست‌های پایدار؛ در Vercel باید به DB پایدار مثل Neon وصل شود |
 | `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` | اعتبارنامه OAuth اختصاصی برنامه؛ بدون آن ورود OAuth فعال نمی‌شود |
