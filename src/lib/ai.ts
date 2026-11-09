@@ -296,9 +296,9 @@ async function callGemini(
       }, Math.min(5_000, remaining));
       if (!res.ok) {
         logAi("gemini_http", model, res.status);
-        // Authentication and quota failures are project-wide; trying more
-        // models only adds latency and repeats a failure that cannot recover.
-        if ([401, 403, 429].includes(res.status)) return null;
+        // Invalid credentials are project-wide. Quota and availability can
+        // differ by model, so keep the bounded fallback chain for 429/5xx.
+        if ([401, 403].includes(res.status)) return null;
         continue;
       }
       const json = (await res.json()) as {
