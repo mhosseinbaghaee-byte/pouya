@@ -190,19 +190,6 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     attribution: "بانک تصاویر آموزشی آناتومی پویا",
   },
   {
-    id: "earth_map",
-    title: "نقشه کره زمین",
-    subject: "جغرافیا",
-    grades: "چهارم تا نهم",
-    keywords: [
-      "نقشه جهان", "نقشه زمین", "نقشه کره", "نقشه کره زمین", "کره زمین",
-      "world map", "نقشه دنیا", "نقشه کل جهان",
-    ],
-    caption: "نقشه جهان برای شناخت قاره‌ها و اقیانوس‌ها.",
-    imageUrl: "/atlas/world-political.jpg",
-    attribution: "اطلس جغرافیای فارسی — بانک پویا",
-  },
-  {
     id: "photosynthesis",
     title: "فتوسنتز",
     subject: "علوم / زیست",
@@ -243,6 +230,8 @@ export const LESSON_DIAGRAMS: LessonDiagram[] = [
     imageUrl: WM("Periodic_table_large.svg", 960),
     attribution: "ویکی‌مدیا کامنز — جدول تناوبی",
   },
+  // Register every map in the local geography atlas in the lesson gallery.
+  ...GEO_ATLAS_MAPS.map(fromGeoAtlas),
 ];
 
 export function diagramById(id: string): LessonDiagram | undefined {
