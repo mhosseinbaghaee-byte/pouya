@@ -133,6 +133,7 @@ export function ChatPane(props: {
   scrollerRef: RefObject<HTMLDivElement | null>;
   onSend: (t: string, attachment?: ChatAttachment) => void;
   onLesson: (t: string) => void;
+  onOpenLessonSection: () => void;
   onDaily: () => void;
   onFact: () => void;
   onMic: () => void;
@@ -162,6 +163,7 @@ export function ChatPane(props: {
     scrollerRef,
     onSend,
     onLesson,
+    onOpenLessonSection,
     onDaily,
     onFact,
     onMic,
@@ -361,22 +363,18 @@ export function ChatPane(props: {
 
             <button
               type="button"
-              onClick={() =>
-                onLesson(
-                  "می‌خواهم وارد حالت «درس با شکل» شوم. ابتدا از من بخواه موضوع یا مبحثی را که می‌خواهم یاد بگیرم خودم انتخاب کنم. بعد از انتخاب من، درس را مرحله‌به‌مرحله و به زبان ساده فارسی آموزش بده، شکل یا نمودار آموزشی مرتبط را نمایش بده و مطمئن شو مفهوم را فهمیده‌ام."
-                )
-              }
+              onClick={onOpenLessonSection}
               className="flex w-full items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-3 text-start text-cream backdrop-blur-sm transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              aria-label="شروع درس با شکل در مربی پویا"
+              aria-label="رفتن به بخش درس با شکل در مربی‌ها"
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
                 <BookOpen className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold">درس با شکل</span>
-                <span className="mt-1 block text-xs text-cream/70">انتخاب موضوع و آموزش تصویری در گفت‌وگو با مربی</span>
+                <span className="mt-1 block text-xs text-cream/70">انتخاب موضوع و آموزش تصویری در بخش مربی‌ها</span>
               </span>
-              <span className="text-xs text-cream/70">شروع</span>
+              <span className="text-xs text-cream/70">ورود</span>
             </button>
 
             <div className="flex flex-wrap justify-center gap-2">
