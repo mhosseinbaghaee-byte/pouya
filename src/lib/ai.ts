@@ -377,7 +377,10 @@ async function attachVisuals(text: string, lastUser: string): Promise<string> {
     const cap = localDiagram.caption ? "\n*" + localDiagram.caption + "*" : "";
     out = out + "\n\n" + imgMd + cap;
   } else if (looksVisual(lastUser)) {
-    const q = queryFromPersian(lastUser);
+    // Geography images must come from a confidently matched local atlas entry.
+    // Do not send an unmatched map/place request to broad Wikimedia search.
+    const geographyVisual = /(نقشه|قاره|کشور|اقیانوس|دریا|رود|رودخانه|کوه|جزیره|مرز|استان|جغرافی|atlas|geograph|\bmap\b)/i.test(lastUser);
+    const q = geographyVisual ? null : queryFromPersian(lastUser);
     // If the subject cannot be extracted confidently, answer in text only.
     if (q) out = out + "\n\n[wiki:" + q + "]";
   }
