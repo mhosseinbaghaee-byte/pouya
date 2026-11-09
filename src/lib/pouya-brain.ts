@@ -38,9 +38,14 @@ function cacheKey(question: string, level?: string, assistantId?: string): strin
 export function isBankWorthyQuestion(q: string): boolean {
   const t = q.trim();
   if (t.length < 4 || t.length > 180) return false;
-  if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر|موضوع آموزشی روزانه|کد:\s*\d+)/.test(t)) return false;
+
+  // The shared bank is for reusable definitions, not explanations whose
+  // answer depends on context, opinion, or a learner's personal situation.
+  if (/(چرا|چطور|چگونه|به نظرت|نظر تو|برای من|در مورد من)/.test(t)) return false;
+  if (/(^|\\s)(من|تو)(\\s|$)/.test(t) && t.length < 80) return false;
+  if (/(دانستی|دانستنی|واقعیت علمی|غافلگیر|موضوع آموزشی روزانه|کد:\\s*\\d+)/.test(t)) return false;
   if (/(اسمم|ناراحتم|خوشحالم|دوست دارم|دوست ندارم)/.test(t) && t.length < 40) return false;
-  if (/(قیمت|نرخ).*(دلار|یورو|طلا|سکه)|دلار\s*چند|یورو\s*چند/.test(t)) return false;
+  if (/(قیمت|نرخ).*(دلار|یورو|طلا|سکه)|دلار\\s*چند|یورو\\s*چند/.test(t)) return false;
   return true;
 }
 
