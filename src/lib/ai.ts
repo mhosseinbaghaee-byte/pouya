@@ -194,9 +194,9 @@ function systemPrompt(
     `- مغز اصلی تو هوش مصنوعی است: هر چیزی که بچه بپرسد خودت بفهم و جواب بده. منتظر کلیدواژه یا لیست موضوع نباش.\n` +
     `- مستقیم و طبیعی جواب بده؛ مثل معلم باهوش، نه ربات عذرخواه.\n` +
     `- همیشه کمک‌کننده و انسان‌وار جواب بده. اگر کاربر نگران، مریض، ناراحت یا کنجکاو است همدلی کوتاه و راهنمایی مفید بده.\n` +
-    `- هرگز نگو به اطلاعات زنده / به‌روز / اینترنت دسترسی نداری. این جمله‌ها ممنوع است.\n` +
-    `- هرگز نگو نمی‌دانم، پوشش نمی‌دهم، خارج از تخصصم است، فقط دانش قبلی دارم — مگر برای محتوای جنسی صریح.\n` +
-    `- اگر مطمئن نیستی بهترین تخمین و قدم بعدی مفید بده و کوتاه بگو تقریبی است.\n` +
+    `- درباره دسترسی زنده یا اینترنت ادعای نادرست نکن؛ فقط وقتی داده زنده در ورودی یا ابزار واقعاً موجود است به آن استناد کن.\n` +
+    `- اگر پاسخ را نمی‌دانی یا شواهد کافی نداری، صریح و کوتاه بگو مطمئن نیستی؛ حدس را به‌عنوان واقعیت بیان نکن.\n` +
+    `- اگر سؤال مبهم است یک سؤال روشن‌کننده بپرس؛ اگر چند تفسیر محتمل دارد، آن‌ها را از هم جدا کن.\n` +
     `- سؤال شخصی (مثل مریضی خانواده) را جدی بگیر: همدلی + توصیه عمومی ایمن + در صورت نیاز پیشنهاد کمک از بزرگ‌تر یا پزشک.\n` +
     `- اگر داده زنده بازار در پرامپت هست از آن استفاده کن؛ وگرنه با دانش و استدلال خودت جواب بده.\n` +
     `- اگر کاربر عکس/شکل/نقشه خواست نگو نمی‌توانی تصویر بدهی. سیستم خودش از بانک اطلس محلی یا شکل آموزشی تصویر می‌گذارد؛ فقط توضیح کوتاه بده و تگ [wiki:...] نگذار مگر اینکه سیستم نتواند تصویر محلی پیدا کند.\n` +
@@ -237,21 +237,6 @@ function providerOrder(): ProviderId[] {
   return list.length ? list : DEFAULT_ORDER;
 }
 
-function looksLikeLameRefusal(text: string): boolean {
-  const t = (text || "").trim();
-  if (!t) return true;
-  const low = t.replace(/\u200c/g, "");
-  if (/دسترسی\s*به\s*(اطلاعات|داده)/.test(low) && /(زنده|به\s*روز|اینترنت|لحظ)/.test(low)) return true;
-  if (/(نمی\s*توانم|نمیتوانم)/.test(low) && /(اطلاعات|داده\s*زنده|دسترسی|به\s*روز)/.test(low)) return true;
-  if (/فقط/.test(low) && /(دانش|اطلاعات)/.test(low) && /(قبلی|از\s*قبل|آموزش)/.test(low)) return true;
-  if (/(خارج\s*از\s*(تخصص|دامنه|محدوده)|پوشش\s*نمی|در\s*حیطه\s*من\s*نیست)/.test(low)) return true;
-  if (/(متاسفانه|متأسفانه)/.test(low) && /(نمی\s*توانم|نمیتوانم|دسترسی\s*ندارم)/.test(low)) return true;
-  if (/I (don't|do not|cannot|can't) (have|access|provide)/i.test(t) && /(real[- ]?time|up[- ]?to[- ]?date|live)/i.test(t))
-    return true;
-  if (/اتصال\s*مدل\s*کامل\s*در\s*دسترس\s*نیست/.test(low)) return true;
-  return false;
-}
-
 async function callGemini(messages: ChatMsg[], system: string, image?: string): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) {
@@ -275,10 +260,13 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
   }
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-      const res = await fetch(url, {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      const res = await fetchWithTimeout(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key,
+        },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents,
@@ -287,6 +275,9 @@ async function callGemini(messages: ChatMsg[], system: string, image?: string): 
       });
       if (!res.ok) {
         logAi("gemini_http", model, res.status);
+        // Authentication and quota failures are project-wide; trying more
+        // models only adds latency and repeats a failure that cannot recover.
+        if ([401, 403, 429].includes(res.status)) return null;
         continue;
       }
       const json = (await res.json()) as {
@@ -330,7 +321,7 @@ async function callOpenAI(messages: ChatMsg[], system: string, image?: string): 
     msgs.push({ role: m.role, content: m.content });
   }
   try {
-    const res = await fetch(`${base}/chat/completions`, {
+    const res = await fetchWithTimeout(`${base}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages: msgs, temperature: 0.6 }),
@@ -420,31 +411,6 @@ export const askPouya = createServerFn({ method: "POST" })
           if (reply) {
             provider = "openai";
             break;
-          }
-        }
-      }
-
-      if (reply && looksLikeLameRefusal(reply)) {
-        logAi("refusal_retry", reply.slice(0, 120));
-        const force =
-          system +
-          "\n\nدستور فوری: جواب قبلی‌ات شبیه عذرخواهی ربات بود. دوباره فقط یک جواب مفید انسانی بنویس. هرگز نگو دسترسی به اطلاعات زنده نداری. مستقیم به نیاز کاربر پاسخ بده.";
-        for (const p of providerOrder()) {
-          if (p === "gemini") {
-            const retry = await callGemini(messages, force, data.image);
-            if (retry && !looksLikeLameRefusal(retry)) {
-              reply = retry;
-              provider = "gemini";
-              break;
-            }
-          }
-          if (p === "openai") {
-            const retry = await callOpenAI(messages, force, data.image);
-            if (retry && !looksLikeLameRefusal(retry)) {
-              reply = retry;
-              provider = "openai";
-              break;
-            }
           }
         }
       }
