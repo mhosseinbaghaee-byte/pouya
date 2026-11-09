@@ -27,7 +27,7 @@ function env(key: string): string | undefined {
 }
 
 export function gateIdentityEnabled(): boolean {
-  return env("VITE_AUTH_ENABLED") !== "false" && Boolean(env("GROK_PROJECT_ID"));
+  const databaseReady = process.env.VERCEL !== "1" || Boolean(env("DATABASE_URL"));\n  return databaseReady && env("VITE_AUTH_ENABLED") !== "false" && Boolean(env("GROK_PROJECT_ID"));
 }
 
 async function defaultJwksFetch(url: string): Promise<GateJwks | null> {
