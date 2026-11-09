@@ -369,16 +369,18 @@ async function callOpenAI(
 
 /** اولویت اطلس محلی؛ فقط اگر نبود ویکی‌مدیا */
 async function attachVisuals(text: string, lastUser: string): Promise<string> {
-  let out = text;
+  // Never trust image URLs or [wiki:...] tags emitted by the model. Only attach
+  // an image selected from the student's actual question and our verified banks.
+  let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
   const localDiagram = matchDiagram(lastUser);
   if (localDiagram?.imageUrl) {
-    out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]+\]/gi, "").trim();
-    const imgMd = `![${localDiagram.title}](${localDiagram.imageUrl})`;
-    const cap = localDiagram.caption ? `\n*${localDiagram.caption}*` : "";
-    out = `${out}\n\n${imgMd}${cap}`;
-  } else if (looksVisual(lastUser) && !/\[wiki:/i.test(out) && !/!\[[^\]]*\]\(\/atlas\//i.test(out)) {
+    const imgMd = \`![\${localDiagram.title}](\${localDiagram.imageUrl})\`;
+    const cap = localDiagram.caption ? \`\n*\${localDiagram.caption}*\` : "";
+    out = \`\${out}\n\n\${imgMd}\${cap}\`;
+  } else if (looksVisual(lastUser)) {
     const q = queryFromPersian(lastUser);
-    if (q) out = `${out}\n\n[wiki:${q}]`;
+    // If the subject cannot be extracted confidently, answer in text only.
+    if (q) out = \`\${out}\n\n[wiki:\${q}]\`;
   }
   try {
     const resolved = await resolveWikiTags(out);
