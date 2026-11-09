@@ -15,15 +15,15 @@ const label = (x: number, y: number, value: string, color = "#334155") => (
 
 export function ScienceDiagramSvg({ id }: { id: string }) {
   if (id === "atom-structure") return (
-    <svg {...frame} aria-label="ساختار اتم">
-      {title("ساختار ساده‌شده اتم")}
+    <svg {...frame} aria-label="مدل ساده‌شده اتم خنثی هلیم-۴">
+      {title("مدل ساده‌شده اتم هلیم-۴")}
       <circle cx="180" cy="118" r="32" fill="#fee2e2" stroke="#be123c" strokeWidth="2"/>
       <circle cx="168" cy="108" r="8" fill="#ef4444"/><circle cx="190" cy="108" r="8" fill="#ef4444"/>
       <circle cx="179" cy="128" r="8" fill="#94a3b8"/><circle cx="194" cy="128" r="8" fill="#94a3b8"/>
       <ellipse cx="180" cy="118" rx="100" ry="52" fill="none" stroke="#64748b" strokeWidth="1.8"/>
       <circle cx="80" cy="118" r="7" fill="#2563eb"/><circle cx="280" cy="118" r="7" fill="#2563eb"/>
-      {label(180, 175, "هسته: پروتون (+) و نوترون (۰)", "#7f1d1d")}
-      {label(180, 195, "الکترون‌ها بار منفی (−) دارند", "#1d4ed8")}
+      {label(180, 175, "هسته: ۲ پروتون + ۲ نوترون (هلیم-۴)", "#7f1d1d")}
+      {label(180, 195, "۲ الکترون؛ اتم خنثی هلیم", "#1d4ed8")}
     </svg>
   );
   if (id === "water-molecule") return (
@@ -41,7 +41,10 @@ export function ScienceDiagramSvg({ id }: { id: string }) {
   if (id === "co2-molecule") return (
     <svg {...frame} aria-label="مولکول دی اکسید کربن">
       {title("دی‌اکسید کربن — CO₂")}
-      <line x1="105" y1="118" x2="255" y2="118" stroke="#64748b" strokeWidth="8"/>
+      <g stroke="#64748b" strokeWidth="4" strokeLinecap="round">
+        <line x1="119" y1="113" x2="151" y2="113"/><line x1="119" y1="123" x2="151" y2="123"/>
+        <line x1="209" y1="113" x2="241" y2="113"/><line x1="209" y1="123" x2="241" y2="123"/>
+      </g>
       <circle cx="180" cy="118" r="29" fill="#334155"/><circle cx="95" cy="118" r="25" fill="#ef4444"/><circle cx="265" cy="118" r="25" fill="#ef4444"/>
       {label(180, 123, "C", "#fff")}{label(95, 123, "O", "#fff")}{label(265, 123, "O", "#fff")}
       {label(180, 180, "یک اتم کربن + دو اتم اکسیژن")}
@@ -86,7 +89,7 @@ export function ScienceDiagramSvg({ id }: { id: string }) {
       {title("مقیاس اسیدی و بازی — pH")}
       {Array.from({length: 14}, (_, i) => (
         <g key={i}>
-          <rect x={22 + i * 22.5} y="82" width="21" height="30" rx="3" fill={i < 7 ? "#fca5a5" : i === 7 ? "#86efac" : "#93c5fd"}/>
+          <rect x={22 + i * 22.5} y="82" width="21" height="30" rx="3" fill={i < 6 ? "#fca5a5" : i === 6 ? "#86efac" : "#93c5fd"}/>
           <text x={32.5 + i * 22.5} y="101" fontSize="9" textAnchor="middle" fill="#0f172a">{i + 1}</text>
         </g>
       ))}
@@ -109,12 +112,12 @@ export function ScienceDiagramSvg({ id }: { id: string }) {
   if (id === "light-reflection") return (
     <svg {...frame} aria-label="بازتاب نور">
       {title("بازتاب نور از آینه")}
-      <line x1="180" y1="60" x2="180" y2="176" stroke="#64748b" strokeWidth="5"/>
-      <line x1="55" y1="155" x2="180" y2="112" stroke="#dc2626" strokeWidth="3"/>
-      <line x1="180" y1="112" x2="305" y2="155" stroke="#2563eb" strokeWidth="3"/>
-      <line x1="180" y1="65" x2="180" y2="185" stroke="#94a3b8" strokeDasharray="5 4"/>
-      {label(92, 132, "پرتو تابش", "#b91c1c")}{label(267, 132, "پرتو بازتاب", "#1d4ed8")}
-      {label(180, 202, "زاویه تابش = زاویه بازتاب")}
+      <line x1="55" y1="150" x2="305" y2="150" stroke="#64748b" strokeWidth="5"/>
+      <line x1="180" y1="48" x2="180" y2="194" stroke="#94a3b8" strokeDasharray="5 4"/>
+      <line x1="95" y1="65" x2="180" y2="150" stroke="#dc2626" strokeWidth="3"/>
+      <line x1="180" y1="150" x2="265" y2="65" stroke="#2563eb" strokeWidth="3"/>
+      {label(105, 85, "پرتو تابش", "#b91c1c")}{label(255, 85, "پرتو بازتاب", "#1d4ed8")}
+      {label(180, 202, "آینه افقی؛ خط عمود عمودی است")}
     </svg>
   );
   if (id === "refraction") return (
