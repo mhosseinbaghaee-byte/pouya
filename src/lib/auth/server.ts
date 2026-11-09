@@ -83,8 +83,10 @@ const authDisabled =
 // otherwise fall back to the shared live-preview client, which the broker accepts
 // for any `*.grok-sandbox.com` callback (see `./preview`).
 const grokIssuer = env("GROK_AUTH_ISSUER") ?? GROK_ISSUER_DEFAULT;
-const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
-const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
+const grokClientId =
+  env("GROK_AUTH_CLIENT_ID") ?? (isVercelRuntime ? undefined : PREVIEW_CLIENT_ID);
+const grokClientSecret =
+  env("GROK_AUTH_CLIENT_SECRET") ?? (isVercelRuntime ? undefined : PREVIEW_CLIENT_SECRET);
 
 /** True when federated sign-in is active (real auth is enforced). */
 export const authConfigured =
@@ -130,7 +132,7 @@ const trustedOrigins: string[] = explicitBaseURL
       ...LOCAL_DEV_ORIGINS,
     ];
 
-const databaseUrl = env("DATABASE_URL");
+
 
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
 // Discovery would cost an extra network hop to the broker before the popup can
@@ -148,7 +150,9 @@ const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 // the app turns sign-in on.
 const database = databaseUrl
   ? new Pool({ connectionString: databaseUrl })
-  : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+  : isVercelRuntime
+    ? undefined
+    : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 
 /** Session token cookie name — also read by the live-preview popup completion page. */
 export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
