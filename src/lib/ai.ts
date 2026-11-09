@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { fetchTextWithTimeout } from "./ai-timeout";
 import { localQuiz, localTutorReply, todayFact, type QuizPayload, type QuizQuestion } from "./library";
 import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
@@ -78,19 +79,19 @@ function wantsLiveMarket(text: string): boolean {
 
 type MarketSnap = { line: string; asOf?: string };
 
-async function fetchIranMarketSnap(): Promise<MarketSnap | null> {
+async function fetchIranMarketSnap(deadline: number): Promise<MarketSnap | null> {
   const url =
     "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4500);
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: "application/json", "User-Agent": "pouya-tutor/1" },
-    });
-    clearTimeout(timer);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
+    const { response: res, body } = await fetchTextWithTimeout(
+      url,
+      { headers: { Accept: "application/json", "User-Agent": "pouya-tutor/1" } },
+      Math.min(1500, remaining),
+    );
     if (!res.ok) return null;
-    const json = (await res.json()) as {
+    const json = JSON.parse(body) as {
       updated_at?: string;
       data?: Array<{ symbol?: string; price?: number | string; unit?: string; name?: string }>;
     };
@@ -237,20 +238,6 @@ function providerOrder(): ProviderId[] {
   return list.length ? list : DEFAULT_ORDER;
 }
 
-async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs = 5_000,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function callGemini(
   messages: ChatMsg[],
   system: string,
@@ -282,7 +269,7 @@ async function callGemini(
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      const res = await fetchWithTimeout(url, {
+      const { response: res, body } = await fetchTextWithTimeout(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -301,7 +288,7 @@ async function callGemini(
         if ([401, 403].includes(res.status)) return null;
         continue;
       }
-      const json = (await res.json()) as {
+      const json = JSON.parse(body) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
       const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
@@ -349,7 +336,7 @@ async function callOpenAI(
   try {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return null;
-    const res = await fetchWithTimeout(`${base}/chat/completions`, {
+    const { response: res, body } = await fetchTextWithTimeout(`${base}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages: msgs, temperature: 0.6 }),
@@ -358,7 +345,7 @@ async function callOpenAI(
       logAi("openai_http", res.status);
       return null;
     }
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const json = JSON.parse(body) as { choices?: Array<{ message?: { content?: string } }> };
     const text = json.choices?.[0]?.message?.content || "";
     return text.trim() || null;
   } catch (e) {
@@ -404,7 +391,7 @@ export const askPouya = createServerFn({ method: "POST" })
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
       let system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief);
       if (wantsLiveMarket(lastUser)) {
-        const snap = await fetchIranMarketSnap();
+        const snap = await fetchIranMarketSnap(requestDeadline);
         if (snap?.line) {
           system = `${system}\n\nداده زنده بازار (کمک به AI، نه جایگزین فکر کردن):\n${snap.line}`;
         }
