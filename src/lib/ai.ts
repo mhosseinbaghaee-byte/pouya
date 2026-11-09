@@ -374,8 +374,8 @@ async function attachVisuals(text: string, lastUser: string): Promise<string> {
   let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
   const localDiagram = matchDiagram(lastUser);
   if (localDiagram?.imageUrl) {
-    const imgMd = \`![\${localDiagram.title}](\${localDiagram.imageUrl})\`;
-    const cap = localDiagram.caption ? \`\n*\${localDiagram.caption}*\` : "";
+    const imgMd = `![${localDiagram.title}](${localDiagram.imageUrl})`;
+    const cap = localDiagram.caption ? `\n*${localDiagram.caption}*` : "";
     out = \`\${out}\n\n\${imgMd}\${cap}\`;
   } else if (looksVisual(lastUser)) {
     const q = queryFromPersian(lastUser);
