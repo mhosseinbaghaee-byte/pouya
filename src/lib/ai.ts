@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { fetchTextWithTimeout } from "./ai-timeout";
+import { fetchBytesWithTimeout, fetchTextWithTimeout } from "./ai-timeout";
 import { localQuiz, localTutorReply, todayFact, type QuizPayload, type QuizQuestion } from "./library";
 import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
@@ -197,6 +197,11 @@ function systemPrompt(
     `- همیشه کمک‌کننده و انسان‌وار جواب بده. اگر کاربر نگران، مریض، ناراحت یا کنجکاو است همدلی کوتاه و راهنمایی مفید بده.\n` +
     `- درباره دسترسی زنده یا اینترنت ادعای نادرست نکن؛ فقط وقتی داده زنده در ورودی یا ابزار واقعاً موجود است به آن استناد کن.\n` +
     `- اگر پاسخ را نمی‌دانی یا شواهد کافی نداری، صریح و کوتاه بگو مطمئن نیستی؛ حدس را به‌عنوان واقعیت بیان نکن.\n` +
+    `- در پاسخ آموزشی، واقعیت قطعی را از فرض، تقریب و مثال جدا کن؛ برای منبع، صفحه کتاب، آزمایش یا عددی که در اختیار نداری منبع‌سازی نکن.\\n` +
+    `- پیش از ارسال پاسخ، استدلال و نتیجه را یک بار بازبینی کن؛ در محاسبات عملیات، واحدها، علامت‌ها و نتیجه نهایی را کنترل کن.\\n` +
+    `- در علوم، ساده‌سازی نباید باعث خطای علمی شود؛ اگر پاسخ به پایه تحصیلی، کتاب یا تعریف خاصی وابسته است و آن مشخص نیست، این محدودیت را روشن کن.\\n` +
+    `- اگر دو برداشت علمی معتبر وجود دارد، اختلاف را کوتاه توضیح بده و یکی را بی‌دلیل حقیقت قطعی معرفی نکن.\\n` +
+    `- سؤال دانش‌آموز را کامل بخوان و به همان سؤال پاسخ بده؛ اطلاعات نامرتبط، پاسخ طولانی بی‌دلیل یا تکرار یکسان اضافه نکن.\\n` +
     `- اگر سؤال مبهم است یک سؤال روشن‌کننده بپرس؛ اگر چند تفسیر محتمل دارد، آن‌ها را از هم جدا کن.\n` +
     `- سؤال شخصی (مثل مریضی خانواده) را جدی بگیر: همدلی + توصیه عمومی ایمن + در صورت نیاز پیشنهاد کمک از بزرگ‌تر یا پزشک.\n` +
     `- اگر داده زنده بازار در پرامپت هست از آن استفاده کن؛ وگرنه با دانش و استدلال خودت جواب بده.\n` +
@@ -490,15 +495,17 @@ export const speakPouya = createServerFn({ method: "POST" })
       const text = data.text.replace(/[*_`#>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
       if (!text) return { ok: false as const, error: "empty" };
 
+      // Prefer a dedicated TTS credential; a chat-only key may not have audio access.
       const key = (
+        process.env.OPENAI_TTS_KEY ||
         process.env.OPENAI_API_KEY ||
         process.env.LIARA_API_KEY ||
-        process.env.OPENAI_TTS_KEY ||
         ""
       ).trim();
       if (!key) return { ok: false as const, error: "no_tts_key" };
 
       const base = (
+        process.env.OPENAI_TTS_BASE_URL ||
         process.env.OPENAI_BASE_URL ||
         process.env.LIARA_BASE_URL ||
         "https://api.openai.com/v1"
@@ -507,20 +514,31 @@ export const speakPouya = createServerFn({ method: "POST" })
         .replace(/\/+$/, "");
       const voice = process.env.OPENAI_TTS_VOICE || "nova";
       const model = process.env.OPENAI_TTS_MODEL || "tts-1";
-      const res = await fetch(`${base}/audio/speech`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
+      const { response: res, body } = await fetchBytesWithTimeout(
+        `${base}/audio/speech`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model, voice, input: text }),
         },
-        body: JSON.stringify({ model, voice, input: text }),
-      });
+        8_000,
+      );
       if (!res.ok) return { ok: false as const, error: "tts_http" };
-      const buf = Buffer.from(await res.arrayBuffer());
+      const mime = res.headers.get("content-type") || "audio/mpeg";
+      if (!mime.toLowerCase().startsWith("audio/") || body.byteLength === 0) {
+        return { ok: false as const, error: "tts_invalid_response" };
+      }
+      if (body.byteLength > 12 * 1024 * 1024) {
+        return { ok: false as const, error: "tts_response_too_large" };
+      }
+      const buf = Buffer.from(body);
       return {
         ok: true as const,
         audio: buf.toString("base64"),
-        mime: res.headers.get("content-type") || "audio/mpeg",
+        mime,
       };
     } catch {
       return { ok: false as const, error: "unavailable" };
