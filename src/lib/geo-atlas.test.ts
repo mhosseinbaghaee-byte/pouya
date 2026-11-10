@@ -11,7 +11,7 @@ test("a zoom follow-up keeps the most recent country in context", () => {
 test("a new unrelated question does not inherit the previous country", () => {
   const query = geoAtlasQueryWithContext("پایتخت فرانسه چیست؟", "ایتالیا کجاست");
   assert.equal(query, "پایتخت فرانسه چیست؟");
-  assert.equal(matchGeoAtlas(query)?.id, undefined);
+  assert.equal(matchGeoAtlas(query)?.id, "pg-097");
 });
 
 test("the Arabian Peninsula query resolves to its own atlas entry", () => {
