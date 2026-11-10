@@ -320,11 +320,15 @@ function norm(s: string) {
 }
 
 export function matchDiagram(text: string): LessonDiagram | null {
-  const geo = matchGeoAtlas(text);
-  if (geo) return fromGeoAtlas(geo);
-
   const t = norm(text);
   if (t.length < 2) return null;
+
+  // A flag collection is not a political map. Never satisfy a flag request
+  // with a generic country/world atlas match.
+  if (/(پرچم|بیرق|flags? of|country flags?)/i.test(t)) return null;
+
+  const geo = matchGeoAtlas(text);
+  if (geo) return fromGeoAtlas(geo);
   let best: LessonDiagram | null = null;
   let score = 0;
   for (const d of LESSON_DIAGRAMS) {
@@ -344,6 +348,26 @@ export function matchDiagram(text: string): LessonDiagram | null {
     }
   }
   return score >= 2 ? best : null;
+}
+
+/**
+ * Guard against cross-topic model/cache answers when a question has a confident
+ * local diagram match. A mismatched answer is replaced with the diagram's own
+ * reviewed title and caption rather than displaying unrelated prose beside it.
+ */
+export function alignAnswerToDiagramQuestion(question: string, answer: string): string {
+  const diagram = matchDiagram(question);
+  if (!diagram || !answer.trim()) return answer;
+
+  const q = norm(question);
+  const a = norm(answer);
+  const anchors = [diagram.title, ...diagram.keywords]
+    .map(norm)
+    .filter((key) => key.length >= 5 && q.includes(key));
+
+  if (!anchors.length || anchors.some((key) => a.includes(key))) return answer;
+
+  return `${diagram.title}\n${diagram.caption}\nاین توضیح بر اساس موضوع دقیق پرسش شماست.`;
 }
 
 export function diagramTag(id: string) {

@@ -4,7 +4,7 @@ import { fetchBytesWithTimeout, fetchTextWithTimeout } from "./ai-timeout";
 import { localQuiz, localTutorReply, todayFact, type QuizPayload, type QuizQuestion } from "./library";
 import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
-import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
+import { LESSON_DIAGRAMS, alignAnswerToDiagramQuestion, diagramTag, matchDiagram } from "./lesson-diagrams";
 import { bankReply } from "./bank-first";
 import { brainLookupShared, brainRememberShared, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
@@ -201,7 +201,7 @@ function systemPrompt(
     `- پیش از ارسال پاسخ، استدلال و نتیجه را یک بار بازبینی کن؛ در محاسبات عملیات، واحدها، علامت‌ها و نتیجه نهایی را کنترل کن.\n` +
     `- در علوم، ساده‌سازی نباید باعث خطای علمی شود؛ اگر پاسخ به پایه تحصیلی، کتاب یا تعریف خاصی وابسته است و آن مشخص نیست، این محدودیت را روشن کن.\n` +
     `- اگر دو برداشت علمی معتبر وجود دارد، اختلاف را کوتاه توضیح بده و یکی را بی‌دلیل حقیقت قطعی معرفی نکن.\n` +
-    `- سؤال دانش‌آموز را کامل بخوان و به همان سؤال پاسخ بده؛ اطلاعات نامرتبط، پاسخ طولانی بی‌دلیل یا تکرار یکسان اضافه نکن.\n` +
+    `- سؤال دانش‌آموز را کامل بخوان و به همان سؤال پاسخ بده؛ اطلاعات نامرتبط، پاسخ طولانی بی‌دلیل یا تکرار یکسان اضافه نکن.\n- موضوع پاسخ را با آخرین سؤال تطبیق بده؛ هرگز پاسخ مربوط به موضوع یا گفت‌وگوی دیگری را به این سؤال نچسبان. اگر سؤال درباره جدول تناوبی است، فقط درباره شیمی و جدول تناوبی پاسخ بده.\n` +
     `- اگر سؤال مبهم است یک سؤال روشن‌کننده بپرس؛ اگر چند تفسیر محتمل دارد، آن‌ها را از هم جدا کن.\n` +
     `- سؤال شخصی (مثل مریضی خانواده) را جدی بگیر: همدلی + توصیه عمومی ایمن + در صورت نیاز پیشنهاد کمک از بزرگ‌تر یا پزشک.\n` +
     `- اگر داده زنده بازار در پرامپت هست از آن استفاده کن؛ وگرنه با دانش و استدلال خودت جواب بده.\n` +
@@ -404,7 +404,8 @@ export const askPouya = createServerFn({ method: "POST" })
 
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) {
-        const withVisual = await attachVisuals(sanitizeStudentMath(bank, level), lastUser);
+        const aligned = alignAnswerToDiagramQuestion(lastUser, sanitizeStudentMath(bank, level));
+        const withVisual = await attachVisuals(aligned, lastUser);
         return { ok: true, text: withVisual, provider: "bank" };
       }
 
@@ -415,7 +416,8 @@ export const askPouya = createServerFn({ method: "POST" })
       if (lessonQ) {
         const remembered = await brainLookupShared(lastUser, level, data.assistantId);
         if (remembered?.a) {
-          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser);
+          const aligned = alignAnswerToDiagramQuestion(lastUser, sanitizeStudentMath(remembered.a, level));
+          const withVisual = await attachVisuals(aligned, lastUser);
           return { ok: true, text: withVisual, provider: "bank" };
         }
       }
@@ -453,7 +455,8 @@ export const askPouya = createServerFn({ method: "POST" })
         } else {
           const remembered = await brainLookupShared(lastUser, level, data.assistantId);
           if (remembered?.a) {
-            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser);
+            const aligned = alignAnswerToDiagramQuestion(lastUser, sanitizeStudentMath(remembered.a, level));
+            const withVisual = await attachVisuals(aligned, lastUser);
             return { ok: true, text: withVisual, provider: "bank" };
           }
           reply = localTutorReply({ messages, mode, lang: data.lang });
@@ -461,7 +464,8 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      let text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser);
+      const alignedReply = alignAnswerToDiagramQuestion(lastUser, sanitizeStudentMath(reply, level));
+      let text = await attachVisuals(alignedReply, lastUser);
 
       if ((lessonQ || educational) && provider && provider !== "bank") {
         try {

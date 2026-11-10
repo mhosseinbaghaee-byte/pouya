@@ -11,6 +11,7 @@ import {
   brainRemember,
 } from "./pouya-brain.ts";
 import { bankReply } from "./bank-first.ts";
+import { alignAnswerToDiagramQuestion, matchDiagram } from "./lesson-diagrams.ts";
 import { looksVisual, queryFromPersian, stripForeignImages } from "./wiki-image.ts";
 import { localTutorReply } from "./library-reply.ts";
 
@@ -134,5 +135,27 @@ describe("safety offline (library-reply)", () => {
       mode: "chat",
     });
     assert.ok(/اورژانس|۱۲۳|بزرگ‌تر|بزرگتر/.test(r));
+  });
+});
+
+
+describe("visual answer integrity", () => {
+  it("replaces unrelated prose when the question confidently matches a diagram", () => {
+    const answer = alignAnswerToDiagramQuestion(
+      "جدول تناوبی مندلیف را ساده و مثل کتاب درسی توضیح بده",
+      "نوروز در لحظه اعتدال بهاری آغاز می‌شود و روز و شب تقریباً برابرند.",
+    );
+    assert.match(answer, /جدول تناوبی/);
+    assert.match(answer, /عدد اتمی/);
+    assert.doesNotMatch(answer, /نوروز/);
+  });
+
+  it("keeps an answer that is already about the requested diagram", () => {
+    const answer = "جدول تناوبی عناصر را بر اساس عدد اتمی مرتب می‌کند.";
+    assert.equal(alignAnswerToDiagramQuestion("جدول تناوبی را توضیح بده", answer), answer);
+  });
+
+  it("does not match a flags request to a generic atlas map", () => {
+    assert.equal(matchDiagram("پرچم کشورهای جهان را نشان بده"), null);
   });
 });
