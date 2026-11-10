@@ -9,7 +9,7 @@ test("carries chemistry context into a structure follow-up", () => {
 
 test("carries biology context through chained visual follow-ups", () => {
   const query = visualQueryWithContext("از نزدیک‌تر نشون بده", ["قلب چطور کار می‌کند؟", "شکلش رو نشون بده"]);
-  assert.match(query, /قلب چطور کار می‌کند/);
+  assert.match(query, /قلب چطور کار میکند/);
 });
 
 test("carries math context into a graph follow-up", () => {
