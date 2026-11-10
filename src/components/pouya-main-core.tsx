@@ -8,8 +8,9 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { askPouya, speakPouya, type ChatMode } from "@/lib/ai";
+import { askPouya, speakPouya, validatePouyaCorrection, type ChatMode } from "@/lib/ai";
 import { learningBriefForPrompt, noteInteraction } from "@/lib/learning-memory";
+import { correctionBriefForPrompt, saveVerifiedCorrection } from "@/lib/correction-memory";
 import { diagramTag, matchDiagram } from "@/lib/lesson-diagrams";
 import { localTutorReply } from "@/lib/library";
 import {
@@ -277,6 +278,7 @@ export function PouyaMainApp() {
           lang: nextMode === "live" ? useLang : undefined,
           assistantId: effectiveAssistantId,
           learningBrief: learningBriefForPrompt(),
+          correctionBrief: correctionBriefForPrompt(content),
         },
       });
       const reply =
@@ -304,6 +306,62 @@ export function PouyaMainApp() {
     } finally {
       setBusy(false);
       busyRef.current = false;
+    }
+  }
+
+  async function submitCorrection(question: string, answer: string, feedback: string, messageIndex: number) {
+    const cleanFeedback = feedback.trim();
+    if (cleanFeedback.length < 3) return;
+    try {
+      const context = messagesRef.current.slice(Math.max(0, messageIndex - 3), messageIndex + 1)
+        .map((item) => `${item.role === "user" ? "کاربر" : "پویا"}: ${item.content}`)
+        .join("\n")
+        .slice(0, 5000);
+      const result = await validatePouyaCorrection({
+        data: {
+          question: question.slice(0, 2400),
+          originalAnswer: answer.slice(0, 12000),
+          feedback: cleanFeedback.slice(0, 3000),
+          conversationContext: context,
+        },
+      });
+      if (!result || !("ok" in result) || !result.ok) {
+        toast.error("پویا نتوانست اصلاح را با اطمینان بررسی کند؛ چیزی ذخیره نشد.");
+        return;
+      }
+      if (result.status === "confirmed" || result.status === "partially_confirmed") {
+        const corrected = result.correctedAnswer.trim();
+        const saved = saveVerifiedCorrection({
+          question,
+          originalAnswer: answer,
+          feedback: cleanFeedback,
+          correctedAnswer: corrected,
+          status: result.status,
+          rationale: result.rationale,
+        });
+        if (!saved) {
+          toast.error("اصلاح تأیید شد، اما ذخیره محلی انجام نشد.");
+          return;
+        }
+        setMessages((current) => current.map((item, index) =>
+          index === messageIndex && item.role === "assistant" && item.content === answer
+            ? { ...item, content: corrected }
+            : item
+        ));
+        toast.success(result.status === "confirmed"
+          ? "خطا تأیید و پاسخ اصلاح‌شده ذخیره شد."
+          : "بخشی از پاسخ اشتباه بود؛ نسخه اصلاح‌شده ذخیره شد.");
+        return;
+      }
+      if (result.status === "rejected") {
+        toast.message("بازبینی پویا این اصلاح را تأیید نکرد؛ در حافظه ذخیره نشد.", {
+          description: result.rationale,
+        });
+        return;
+      }
+      toast.message("برای داوری مطمئن، اطلاعات یا منبع دقیق‌تری لازم است؛ چیزی ذخیره نشد.");
+    } catch {
+      toast.error("بررسی اصلاح با خطا مواجه شد؛ چیزی ذخیره نشد.");
     }
   }
 
@@ -466,6 +524,7 @@ export function PouyaMainApp() {
           mode: "chat",
           assistantId,
           learningBrief: learningBriefForPrompt(),
+          correctionBrief: correctionBriefForPrompt(content),
         },
       });
       const reply =
@@ -646,6 +705,7 @@ export function PouyaMainApp() {
             listening={listening}
             scrollerRef={scrollerRef}
             onSend={(t, att) => void send(t, mode === "lesson" || mode === "daily" ? mode : "chat", undefined, att)}
+            onCorrect={(q, a, feedback, index) => submitCorrection(q, a, feedback, index)}
             onLesson={(t) => void send(`درس بده درباره ${t}`, "lesson")}
             onOpenLessonSection={() => {
               setCoachesInitialView("lessons");

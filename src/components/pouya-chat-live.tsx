@@ -1,4 +1,4 @@
-import { type RefObject, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import {
   BookOpen,
   Check,
@@ -22,6 +22,7 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/input";
 import type { ChatMode } from "@/lib/ai";
 import { PouyaFaceButton } from "./pouya-face-button";
+import { deleteVerifiedCorrection, listVerifiedCorrections, type VerifiedCorrection } from "@/lib/correction-memory";
 
 type ChatMsg = { role: "user" | "assistant"; content: string; image?: string };
 export type ChatAttachment = { name: string; mime: string; dataUrl: string };
@@ -37,7 +38,7 @@ function extractPdfTextClient(bytes: Uint8Array): string {
     const tj = /\(([^\\()\n]{1,400}(?:\\.[^\\()\n]*)*)\)\s*Tj/g;
     let m: RegExpExecArray | null;
     while ((m = tj.exec(raw))) {
-      let s = m[1].replace(/\\n/g, "\n").replace(/\\r/g, "").replace(/\\([()\\])/g, "$1");
+      const s = m[1].replace(/\\n/g, "\n").replace(/\\r/g, "").replace(/\\([()\\])/g, "$1");
       if (/[\u0600-\u06FFa-zA-Z0-9]/.test(s)) parts.push(s);
       if (parts.length > 4000) break;
     }
@@ -51,13 +52,18 @@ function Bubble({
   role,
   text,
   image,
+  onCorrect,
 }: {
   role: "user" | "assistant";
   text: string;
   image?: string;
+  onCorrect?: (feedback: string) => Promise<void>;
 }) {
   const mine = role === "user";
   const [copied, setCopied] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionText, setCorrectionText] = useState("");
+  const [correctionBusy, setCorrectionBusy] = useState(false);
 
   async function copyText() {
     try {
@@ -114,6 +120,31 @@ function Bubble({
           <span>{copied ? "کپی شد" : "کپی"}</span>
         </button>
       </div>
+      {!mine && onCorrect ? (
+        <div className="px-1">
+          <button type="button" onClick={() => setCorrectionOpen((open) => !open)} className="min-h-8 rounded-full px-2 text-[11px] text-cream/75 transition hover:bg-white/15 hover:text-white">
+            گزارش خطا / اصلاح پاسخ
+          </button>
+          {correctionOpen ? (
+            <div className="mt-1 rounded-xl border border-white/20 bg-white/95 p-2 text-ink shadow-sm">
+              <label className="mb-1 block text-xs font-medium">اشکال پاسخ چه بود؟ پاسخ درست یا دلیل را بنویس.</label>
+              <textarea value={correctionText} onChange={(event) => setCorrectionText(event.target.value)} rows={3} maxLength={3000} className="w-full resize-y rounded-lg border border-border bg-white p-2 text-sm outline-none focus:ring-2 focus:ring-stage/30" placeholder="توضیح اصلاح یا منبع معتبر…" />
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" onClick={() => setCorrectionOpen(false)} className="rounded-full px-3 py-1.5 text-xs text-fg-muted">انصراف</button>
+                <button type="button" disabled={correctionBusy || correctionText.trim().length < 3} onClick={async () => {
+                  if (!onCorrect) return;
+                  setCorrectionBusy(true);
+                  try { await onCorrect(correctionText.trim()); setCorrectionOpen(false); setCorrectionText(""); }
+                  finally { setCorrectionBusy(false); }
+                }} className="rounded-full bg-stage px-3 py-1.5 text-xs text-white disabled:opacity-50">
+                  {correctionBusy ? "در حال بررسی…" : "ارسال برای بررسی"}
+                </button>
+              </div>
+              <p className="mt-2 text-[10px] leading-5 text-fg-muted">پویا قبل از ذخیره، درستی اصلاح را جداگانه بررسی می‌کند.</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -132,6 +163,7 @@ export function ChatPane(props: {
   listening: boolean;
   scrollerRef: RefObject<HTMLDivElement | null>;
   onSend: (t: string, attachment?: ChatAttachment) => void;
+  onCorrect: (question: string, answer: string, feedback: string, messageIndex: number) => Promise<void>;
   onLesson: (t: string) => void;
   onOpenLessonSection: () => void;
   onDaily: () => void;
@@ -162,6 +194,7 @@ export function ChatPane(props: {
     listening,
     scrollerRef,
     onSend,
+    onCorrect,
     onLesson,
     onOpenLessonSection,
     onDaily,
@@ -184,6 +217,21 @@ export function ChatPane(props: {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState<ChatAttachment | null>(null);
   const typedText = typeof typed === "string" ? typed : "";
+  const [correctionsOpen, setCorrectionsOpen] = useState(false);
+  const [savedCorrections, setSavedCorrections] = useState<VerifiedCorrection[]>([]);
+
+  useEffect(() => {
+    if (correctionsOpen) setSavedCorrections(listVerifiedCorrections());
+  }, [correctionsOpen]);
+
+  function removeSavedCorrection(id: string) {
+    if (deleteVerifiedCorrection(id)) {
+      setSavedCorrections(listVerifiedCorrections());
+      toast.success("اصلاح ذخیره‌شده حذف شد.");
+    } else {
+      toast.error("حذف اصلاح انجام نشد.");
+    }
+  }
 
   function pickFile(file: File | null | undefined) {
     if (!file) return;
@@ -249,6 +297,18 @@ export function ChatPane(props: {
           type="button"
           variant="ghost"
           size="sm"
+          onClick={() => {
+            setCorrectionsOpen((open) => !open);
+            setSavedCorrections(listVerifiedCorrections());
+          }}
+          className="gap-1 text-cream/90 hover:bg-white/15 hover:text-cream"
+        >
+          اصلاحات ذخیره‌شده
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={onSave}
           disabled={!messages.some((m) => m.role === "assistant")}
           className="gap-1 text-cream/90 hover:bg-white/15 hover:text-cream"
@@ -279,6 +339,32 @@ export function ChatPane(props: {
         </Button>
       </div>
 
+      {correctionsOpen ? (
+        <div className="mx-3 mb-2 max-h-52 overflow-y-auto rounded-2xl border border-white/20 bg-white/95 p-2 text-sm text-ink shadow-sm sm:mx-5">
+          <div className="mb-2 flex items-center justify-between px-2">
+            <span className="font-semibold">حافظهٔ اصلاح پاسخ‌ها</span>
+            <span className="text-xs text-fg-muted">{savedCorrections.length} مورد</span>
+          </div>
+          {savedCorrections.length === 0 ? (
+            <p className="px-2 py-3 text-fg-muted">هنوز اصلاح تأییدشده‌ای ذخیره نشده است.</p>
+          ) : (
+            <ul className="space-y-2">
+              {savedCorrections.map((item) => (
+                <li key={item.id} className="rounded-xl bg-black/[0.035] p-2">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{item.question}</p>
+                      <p className="mt-1 text-xs leading-5 text-fg-muted">{item.correctedAnswer}</p>
+                      <p className="mt-1 text-[10px] text-fg-muted">{item.status === "confirmed" ? "اصلاح تأییدشده" : "اصلاح بخشی از پاسخ"}</p>
+                    </div>
+                    <button type="button" onClick={() => removeSavedCorrection(item.id)} className="shrink-0 rounded-full px-2 py-1 text-xs text-red-600 hover:bg-red-50">حذف</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
       {historyOpen ? (
         <div className="mx-3 mb-2 rounded-2xl border border-white/20 bg-white/90 p-2 text-sm shadow-sm sm:mx-5">
           {historyItems.length === 0 ? (
@@ -415,9 +501,25 @@ export function ChatPane(props: {
           </div>
         ) : (
           <div className="mx-auto flex max-w-xl flex-col gap-3 pb-2">
-            {messages.map((m, i) => (
-              <Bubble key={`${m.role}-${i}`} role={m.role} text={m.content} image={m.image} />
-            ))}
+            {messages.map((m, i) => {
+              const previousQuestion = m.role === "assistant"
+                ? [...messages.slice(0, i)].reverse().find((item) => item.role === "user")?.content || ""
+                : "";
+              return (
+                <Bubble
+                  key={`${m.role}-${i}`}
+                  role={m.role}
+                  text={m.content}
+                  image={m.image}
+                  onCorrect={m.role === "assistant" && previousQuestion
+                    ? async (feedback) => {
+                      await onCorrect(previousQuestion, m.content, feedback, i);
+                      setSavedCorrections(listVerifiedCorrections());
+                    }
+                    : undefined}
+                />
+              );
+            })}
             {typedText ? <Bubble role="assistant" text={typedText} /> : null}
             {busy && !typedText ? (
               <div className="text-sm text-cream/80">پویا دارد فکر می‌کند…</div>
