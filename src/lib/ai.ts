@@ -506,7 +506,7 @@ export const askPouya = createServerFn({ method: "POST" })
             ? null
             : await brainLookupShared(lastUser, level, data.assistantId);
           if (remembered?.a) {
-            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser);
+            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUser);
             return { ok: true, text: withVisual, provider: "bank" };
           }
           reply = localTutorReply({ messages, mode, lang: data.lang });
