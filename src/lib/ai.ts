@@ -6,7 +6,7 @@ import { localQuiz, localTutorReply, todayFact, type QuizPayload, type QuizQuest
 import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
 import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
-import { geoAtlasQueryWithContext } from "./geo-atlas";
+import { visualQueryWithContext } from "./visual-context";
 import { bankReply } from "./bank-first";
 import { brainLookupShared, brainRememberShared, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
@@ -379,20 +379,20 @@ async function callOpenAI(
 }
 
 /** اولویت اطلس محلی؛ فقط اگر نبود ویکی‌مدیا */
-async function attachVisuals(text: string, lastUser: string, previousUser?: string): Promise<string> {
+async function attachVisuals(text: string, lastUser: string, previousUserMessages: string[] = []): Promise<string> {
   // Never trust image URLs or [wiki:...] tags emitted by the model.
   let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
-  const visualQuery = geoAtlasQueryWithContext(lastUser, previousUser);
+  const visualQuery = visualQueryWithContext(lastUser, previousUserMessages, !!matchDiagram(lastUser));
   const localDiagram = matchDiagram(visualQuery);
   if (localDiagram?.imageUrl) {
     const imgMd = "![" + localDiagram.title + "](" + localDiagram.imageUrl + ")";
     const cap = localDiagram.caption ? "\n*" + localDiagram.caption + "*" : "";
     out = out + "\n\n" + imgMd + cap;
-  } else if (looksVisual(lastUser)) {
+  } else if (looksVisual(visualQuery)) {
     // Geography images must come from a confidently matched local atlas entry.
     // Do not send an unmatched map/place request to broad Wikimedia search.
-    const geographyVisual = /(نقشه|قاره|کشور|اقیانوس|دریا|رود|رودخانه|کوه|جزیره|مرز|استان|جغرافی|atlas|geograph|\bmap\b)/i.test(lastUser);
-    const q = geographyVisual ? null : queryFromPersian(lastUser);
+    const geographyVisual = /(نقشه|قاره|کشور|اقیانوس|دریا|رود|رودخانه|کوه|جزیره|مرز|استان|جغرافی|atlas|geograph|\bmap\b)/i.test(visualQuery);
+    const q = geographyVisual ? null : queryFromPersian(visualQuery);
     // If the subject cannot be extracted confidently, answer in text only.
     if (q) out = out + "\n\n[wiki:" + q + "]";
   }
@@ -445,7 +445,7 @@ export const askPouya = createServerFn({ method: "POST" })
       const messages = data.messages as ChatMsg[];
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
       const userMessages = messages.filter((m) => m.role === "user");
-      const previousUser = userMessages.length > 1 ? userMessages[userMessages.length - 2].content : undefined;
+      const previousUserMessages = userMessages.slice(0, -1).map((message) => message.content);
       let system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief, data.correctionBrief);
       if (wantsLiveMarket(lastUser)) {
         const snap = await fetchIranMarketSnap(requestDeadline);
@@ -456,7 +456,7 @@ export const askPouya = createServerFn({ method: "POST" })
 
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) {
-        const withVisual = await attachVisuals(sanitizeStudentMath(bank, level), lastUser, previousUser);
+        const withVisual = await attachVisuals(sanitizeStudentMath(bank, level), lastUser, previousUserMessages);
         return { ok: true, text: withVisual, provider: "bank" };
       }
 
@@ -467,7 +467,7 @@ export const askPouya = createServerFn({ method: "POST" })
       if (lessonQ && !data.correctionBrief?.trim()) {
         const remembered = await brainLookupShared(lastUser, level, data.assistantId);
         if (remembered?.a) {
-          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUser);
+          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUserMessages);
           return { ok: true, text: withVisual, provider: "bank" };
         }
       }
@@ -507,7 +507,7 @@ export const askPouya = createServerFn({ method: "POST" })
             ? null
             : await brainLookupShared(lastUser, level, data.assistantId);
           if (remembered?.a) {
-            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUser);
+            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUserMessages);
             return { ok: true, text: withVisual, provider: "bank" };
           }
           reply = localTutorReply({ messages, mode, lang: data.lang });
@@ -515,7 +515,7 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      const text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser, previousUser);
+      const text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser, previousUserMessages);
 
       if ((lessonQ || educational) && provider && provider !== "bank") {
         try {
