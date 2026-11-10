@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.13.0"
 
       - name: Install
         run: |
@@ -35,8 +35,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Unit tests
         run: npm test
-        continue-on-error: true
+
+      - name: Production bundle smoke build
+        run: npm run build:dev

@@ -72,7 +72,9 @@ export function inferTopic(text: string): string {
   const cleaned = line
     .replace(/\[تصویر[^\]]*\]/g, "")
     .replace(/https?:\/\/\S+/g, "")
-    .replace(/[*`#_<>{}\[\]()]/g, " ")
+.replace(/[*`#_<>{}()]/g, " ")
+.replaceAll("[", " ")
+.replaceAll("]", " ")
     .replace(/\b(constructor|prototype|__proto__|function|Object)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
