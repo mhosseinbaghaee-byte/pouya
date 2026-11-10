@@ -382,7 +382,8 @@ async function callOpenAI(
 async function attachVisuals(text: string, lastUser: string, previousUser?: string): Promise<string> {
   // Never trust image URLs or [wiki:...] tags emitted by the model.
   let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
-  const visualQuery = geoAtlasQueryWithContext(lastUser, previousUser);\n  const localDiagram = matchDiagram(visualQuery);
+  const visualQuery = geoAtlasQueryWithContext(lastUser, previousUser);
+  const localDiagram = matchDiagram(visualQuery);
   if (localDiagram?.imageUrl) {
     const imgMd = "![" + localDiagram.title + "](" + localDiagram.imageUrl + ")";
     const cap = localDiagram.caption ? "\n*" + localDiagram.caption + "*" : "";
