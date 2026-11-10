@@ -16,7 +16,7 @@ export function visualQueryWithContext(
   currentHasSpecificMatch = false,
 ): string {
   const now = normalize(current);
-  if (!now || currentHasSpecificMatch || EXPLICIT_SUBJECT.test(now) || !FOLLOW_UP_VISUAL.test(now) || NEW_TOPIC_CUE.test(now)) return current;
+  const explicitSubject = EXPLICIT_SUBJECT.test(now) && !/^با\\s+(?:نمودار|شکل|تصویر)\\b/u.test(now);\n  if (!now || currentHasSpecificMatch || explicitSubject || !FOLLOW_UP_VISUAL.test(now) || NEW_TOPIC_CUE.test(now)) return current;
 
   // Skip earlier follow-ups so chained requests still resolve to the original subject.
   const priorTopic = [...previousUserMessages]
