@@ -233,6 +233,7 @@ export function PouyaMainApp() {
     nextMode: ChatMode = mode,
     nextLang?: LangCode,
     attachment?: { name: string; mime: string; dataUrl: string },
+    requestAssistantId?: string,
   ) {
     let content = text.trim();
     if (!content && attachment)
@@ -247,6 +248,8 @@ export function PouyaMainApp() {
       }
     } catch { /* ignore */ }
     const useLang = nextLang ?? lang;
+    // Use the explicitly selected coach for this request; React state updates are asynchronous.
+    const effectiveAssistantId = requestAssistantId ?? assistantId;
     setMode(nextMode);
     if (nextLang) setLang(nextLang);
     setDraft("");
@@ -272,7 +275,7 @@ export function PouyaMainApp() {
           level,
           mode: nextMode,
           lang: nextMode === "live" ? useLang : undefined,
-          assistantId,
+          assistantId: effectiveAssistantId,
           learningBrief: learningBriefForPrompt(),
         },
       });
@@ -695,7 +698,7 @@ export function PouyaMainApp() {
               setAssistantId(a.id);
               setTab("chat");
               setMode("chat");
-              void send(a.starter || `سلام، من می‌خواهم با مربی ${a.label} کار کنم.`, "chat");
+              void send(a.starter || `سلام، من می‌خواهم با مربی ${a.label} کار کنم.`, "chat", undefined, undefined, a.id);
             }}
             onAskLesson={(prompt) => {
               setTab("chat");
