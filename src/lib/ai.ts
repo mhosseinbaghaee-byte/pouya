@@ -467,7 +467,7 @@ export const askPouya = createServerFn({ method: "POST" })
       if (lessonQ && !data.correctionBrief?.trim()) {
         const remembered = await brainLookupShared(lastUser, level, data.assistantId);
         if (remembered?.a) {
-          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUser);
+          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUserMessages);
           return { ok: true, text: withVisual, provider: "bank" };
         }
       }
@@ -507,7 +507,7 @@ export const askPouya = createServerFn({ method: "POST" })
             ? null
             : await brainLookupShared(lastUser, level, data.assistantId);
           if (remembered?.a) {
-            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUser);
+            const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUserMessages);
             return { ok: true, text: withVisual, provider: "bank" };
           }
           reply = localTutorReply({ messages, mode, lang: data.lang });
@@ -515,7 +515,7 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      const text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser, previousUser);
+      const text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser, previousUserMessages);
 
       if ((lessonQ || educational) && provider && provider !== "bank") {
         try {
