@@ -27,5 +27,5 @@ export function visualQueryWithContext(
       return normalized.length >= 3 && !FOLLOW_UP_VISUAL.test(normalized) && !NEW_TOPIC_CUE.test(normalized);
     });
 
-  return priorTopic ? \`\${current}\n\${priorTopic}\` : current;
+  return priorTopic ? current + "\n" + priorTopic : current;
 }
