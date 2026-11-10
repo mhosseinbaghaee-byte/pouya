@@ -17,6 +17,16 @@ test("carries math context into a graph follow-up", () => {
   assert.match(query, /مشتق تابع/);
 });
 
+test("keeps a substantive graph question as the subject of a later follow-up", () => {
+  const query = visualQueryWithContext("شکلش رو نشون بده", ["نمودار مشتق چیست؟"]);
+  assert.match(query, /نمودار مشتق چیست/);
+});
+
+test("keeps a substantive structure question as the subject of a later follow-up", () => {
+  const query = visualQueryWithContext("از نزدیک‌تر نشون بده", ["ساختار قلب چیست؟"]);
+  assert.match(query, /ساختار قلب چیست/);
+});
+
 test("does not carry context into a new explicit subject", () => {
   const query = visualQueryWithContext("ساختار DNA رو نشون بده", ["ساختار قلب چیست؟"]);
   assert.equal(query, "ساختار DNA رو نشون بده");
