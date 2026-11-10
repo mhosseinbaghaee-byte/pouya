@@ -6,6 +6,7 @@ import { localQuiz, localTutorReply, todayFact, type QuizPayload, type QuizQuest
 import { langById, type Level } from "./topics";
 import { assistantSystemExtra } from "./assistants";
 import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
+import { geoAtlasQueryWithContext } from "./geo-atlas";
 import { bankReply } from "./bank-first";
 import { brainLookupShared, brainRememberShared, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
@@ -378,10 +379,10 @@ async function callOpenAI(
 }
 
 /** اولویت اطلس محلی؛ فقط اگر نبود ویکی‌مدیا */
-async function attachVisuals(text: string, lastUser: string): Promise<string> {
+async function attachVisuals(text: string, lastUser: string, previousUser?: string): Promise<string> {
   // Never trust image URLs or [wiki:...] tags emitted by the model.
   let out = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "").replace(/\[wiki:[^\]]*\]/gi, "").trim();
-  const localDiagram = matchDiagram(lastUser);
+  const visualQuery = geoAtlasQueryWithContext(lastUser, previousUser);\n  const localDiagram = matchDiagram(visualQuery);
   if (localDiagram?.imageUrl) {
     const imgMd = "![" + localDiagram.title + "](" + localDiagram.imageUrl + ")";
     const cap = localDiagram.caption ? "\n*" + localDiagram.caption + "*" : "";
@@ -442,6 +443,8 @@ export const askPouya = createServerFn({ method: "POST" })
       const mode = data.mode as ChatMode;
       const messages = data.messages as ChatMsg[];
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+      const userMessages = messages.filter((m) => m.role === "user");
+      const previousUser = userMessages.length > 1 ? userMessages[userMessages.length - 2].content : undefined;
       let system = systemPrompt(level, mode, data.lang, data.assistantId, !!data.image, data.learningBrief, data.correctionBrief);
       if (wantsLiveMarket(lastUser)) {
         const snap = await fetchIranMarketSnap(requestDeadline);
@@ -452,7 +455,7 @@ export const askPouya = createServerFn({ method: "POST" })
 
       const bank = bankReply({ messages, mode, lang: data.lang });
       if (bank) {
-        const withVisual = await attachVisuals(sanitizeStudentMath(bank, level), lastUser);
+        const withVisual = await attachVisuals(sanitizeStudentMath(bank, level), lastUser, previousUser);
         return { ok: true, text: withVisual, provider: "bank" };
       }
 
@@ -463,7 +466,7 @@ export const askPouya = createServerFn({ method: "POST" })
       if (lessonQ && !data.correctionBrief?.trim()) {
         const remembered = await brainLookupShared(lastUser, level, data.assistantId);
         if (remembered?.a) {
-          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser);
+          const withVisual = await attachVisuals(sanitizeStudentMath(remembered.a, level), lastUser, previousUser);
           return { ok: true, text: withVisual, provider: "bank" };
         }
       }
@@ -511,7 +514,7 @@ export const askPouya = createServerFn({ method: "POST" })
         }
       }
 
-      const text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser);
+      const text = await attachVisuals(sanitizeStudentMath(reply, level), lastUser, previousUser);
 
       if ((lessonQ || educational) && provider && provider !== "bank") {
         try {
