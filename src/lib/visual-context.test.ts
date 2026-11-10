@@ -20,7 +20,7 @@ test("carries math context into a graph follow-up", () => {
   assert.match(query, /مشتق تابع/);
 });
 
-test("does not carry context into a new explicit subject", () => {
+test("carries math context when the learner asks for a graph", () => {\n  const query = visualQueryWithContext("با نمودار توضیح بده", ["مشتق تابع چیست؟"]);\n  assert.match(query, /مشتق تابع/);\n});\n\ntest("does not carry context into a new explicit subject", () => {
   const query = visualQueryWithContext("ساختار DNA رو نشون بده", ["ساختار قلب چیست؟"]);
   assert.equal(query, "ساختار DNA رو نشون بده");
 });
