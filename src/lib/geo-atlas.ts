@@ -229,6 +229,22 @@ const BROAD_IDS = new Set([
   "north-america", "south-america", "oceania", "arctic", "antarctica",
 ]);
 
+/**
+ * Keep the last explicit place in scope when a learner asks a short visual
+ * follow-up such as "show me a closer map". Never carry context into a new topic.
+ */
+export function geoAtlasQueryWithContext(current: string, previousUser?: string): string {
+  const followUp = current
+    .toLowerCase()
+    .replace(/\u200c/g, "")
+    .replace(/[ي]/g, "ی")
+    .replace(/[ك]/g, "ک");
+  if (!previousUser || !/(نزدیک(?:تر)?|بزرگ(?:تر)?|زوم|واضح(?:تر)?|جزئیات|از نزدیک|همین نقشه|این نقشه|همون نقشه)/.test(followUp)) {
+    return current;
+  }
+  return `${current}\n${previousUser}`;
+}
+
 export function matchGeoAtlas(text: string): GeoAtlasMap | null {
   const t = norm(text);
   if (t.length < 2) return null;
