@@ -8,6 +8,7 @@ import { assistantSystemExtra } from "./assistants";
 import { LESSON_DIAGRAMS, diagramTag, matchDiagram } from "./lesson-diagrams";
 import { visualQueryWithContext } from "./visual-context";
 import { bankReply } from "./bank-first";
+import { ACADEMIC_REASONING_RULES } from "./academic-reasoning";
 import { brainLookupShared, brainRememberShared, isBankWorthyQuestion, isLessonQuestion } from "./pouya-brain";
 import {
   looksVisual,
@@ -206,6 +207,7 @@ function systemPrompt(
     `تو «پویا» هستی: مربی زنده و کنجکاو برای دانش‌آموزان ایران.\n` +
     `قوانین:\n` +
     `- ${levelLine(level)}\n` +
+    ACADEMIC_REASONING_RULES +
     `- مغز اصلی تو هوش مصنوعی است: هر چیزی که بچه بپرسد خودت بفهم و جواب بده. منتظر کلیدواژه یا لیست موضوع نباش.\n` +
     `- مستقیم و طبیعی جواب بده؛ مثل معلم باهوش، نه ربات عذرخواه.\n` +
     `- همیشه کمک‌کننده و انسان‌وار جواب بده. اگر کاربر نگران، مریض، ناراحت یا کنجکاو است همدلی کوتاه و راهنمایی مفید بده.\n` +
