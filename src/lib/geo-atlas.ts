@@ -242,7 +242,7 @@ export function geoAtlasQueryWithContext(current: string, previousUser?: string)
   if (!previousUser || !/(نزدیک(?:تر)?|بزرگ(?:تر)?|زوم|واضح(?:تر)?|جزئیات|از نزدیک|همین نقشه|این نقشه|همون نقشه)/.test(followUp)) {
     return current;
   }
-  return \`\${current}\n\${previousUser}\`;
+  return `${current}\n${previousUser}`;
 }
 
 export function matchGeoAtlas(text: string): GeoAtlasMap | null {
