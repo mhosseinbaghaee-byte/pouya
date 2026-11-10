@@ -236,13 +236,13 @@ const BROAD_IDS = new Set([
 export function geoAtlasQueryWithContext(current: string, previousUser?: string): string {
   const followUp = current
     .toLowerCase()
-    .replace(/\\u200c/g, "")
+    .replace(/\u200c/g, "")
     .replace(/[ي]/g, "ی")
     .replace(/[ك]/g, "ک");
   if (!previousUser || !/(نزدیک(?:تر)?|بزرگ(?:تر)?|زوم|واضح(?:تر)?|جزئیات|از نزدیک|همین نقشه|این نقشه|همون نقشه)/.test(followUp)) {
     return current;
   }
-  return `${current}\\n${previousUser}`;
+  return \`\${current}\n\${previousUser}\`;
 }
 
 export function matchGeoAtlas(text: string): GeoAtlasMap | null {
